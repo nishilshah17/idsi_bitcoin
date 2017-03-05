@@ -42,22 +42,6 @@ public class ReduceBlockchain {
         //get block
         Block block = getBlock(value.getBytes());
 
-        /*Path filePath = ((FileSplit) context.getInputSplit()).getPath();
-        File tempFile = File.createTempFile(filePath.getName(), "");
-        FileSystem fileSystem = filePath.getFileSystem(conf);
-        fileSystem.copyToLocalFile(filePath, new Path(tempFile.getAbsolutePath()));
-
-        List<File> blockFiles = new ArrayList<>();
-        blockFiles.add(tempFile);
-            
-        org.bitcoinj.core.Context.getOrCreate(MainNetParams.get());
-        BlockFileLoader blockFileLoader = new BlockFileLoader(MainNetParams.get(), blockFiles); 
-        Block block = null;
-        if(blockFileLoader.hasNext()) {
-            block = blockFileLoader.next();
-        }
-    
-        tempFile.delete();*/
         BlockWritable bw = new BlockWritable(block.getHash().toString());
         //get transactions
         for(Transaction tx : block.getTransactions()) {
@@ -108,7 +92,7 @@ public class ReduceBlockchain {
     private Text blockTag = new Text("block");
     private Text transactionTag = new Text("transaction");
 
-    public void reduce(Text key, Iterable<TransactionWritable> values, Context context) throws IOException, InterruptedException {
+    public void reduce(BlockWritable key, Iterable<TransactionWritable> values, Context context) throws IOException, InterruptedException {
       int sum = 0;
       for (TransactionWritable tx : values) {
         sum += 1;
@@ -126,7 +110,6 @@ public class ReduceBlockchain {
     job.setJar("rbc.jar");
     job.addFileToClassPath(new Path("/user/nishil/bitcoin/bitcoinj.jar"));
     job.setMapperClass(BlockMapper.class);
-    job.setCombinerClass(BlockReducer.class);
     job.setReducerClass(BlockReducer.class);
     job.setMapOutputKeyClass(BlockWritable.class);
     job.setMapOutputValueClass(TransactionWritable.class);

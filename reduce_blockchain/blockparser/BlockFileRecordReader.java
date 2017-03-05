@@ -17,15 +17,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import org.bitcoinj.core.Context;
-import org.bitcoinj.core.Block;
-import org.bitcoinj.utils.BlockFileLoader;
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.params.MainNetParams;
-
 class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
     
-    private FileSplit fileSplit;
+    private InputSplit inputSplit;
     private Configuration conf;
     private boolean processedBlock = false;
 
@@ -33,13 +27,15 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
     private BytesWritable value = new BytesWritable();
     
     public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
-        this.fileSplit = (FileSplit)inputSplit;
+        this.inputSplit = inputSplit;
         this.conf = taskAttemptContext.getConfiguration();
     }
 
     public boolean nextKeyValue() throws IOException {
         if(!processedBlock) {           
-            byte[] blockBytes = new byte[(int)fileSplit.getLength()];
+            FileSplit fileSplit = (FileSplit)inputSplit;
+            int splitLength = (int)fileSplit.getLength();
+            byte[] blockBytes = new byte[splitLength];
 
             //get file
             Path filePath = fileSplit.getPath();
@@ -53,24 +49,7 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
             } finally {
                 IOUtils.closeStream(in);
             }
-            processedBlock = true;
-            return true;
-
-            /* File tempFile = File.createTempFile(filePath.getName(), "");
-            fileSystem.copyToLocalFile(filePath, new Path(tempFile.getAbsolutePath()));
-
-            List<File> blockFiles = new ArrayList<>();
-            blockFiles.add(tempFile);
-            
-            Context.getOrCreate(MainNetParams.get());
-            BlockFileLoader blockFileLoader = new BlockFileLoader(MainNetParams.get(), blockFiles); 
-            Block block = null;
-            if(blockFileLoader.hasNext()) {
-                block = blockFileLoader.next();
-            }
-    
-            tempFile.delete();
-            return true; */
+            return processedBlock = true;
         }
         return false;
     }
