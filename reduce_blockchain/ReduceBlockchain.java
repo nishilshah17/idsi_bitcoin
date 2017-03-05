@@ -18,6 +18,8 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.Block;
@@ -92,15 +94,30 @@ public class ReduceBlockchain {
     private Text blockTag = new Text("block");
     private Text transactionTag = new Text("transaction");
 
+	private MultipleOutputs multipleOutputs;
+
+	public void setup(Context context) {
+		multipleOutputs = new MultipleOutputs(context);
+	}
+
     public void reduce(BlockWritable key, Iterable<TransactionWritable> values, Context context) throws IOException, InterruptedException {
       int sum = 0;
       for (TransactionWritable tx : values) {
         sum += 1;
       }
       result.set(sum);
-      context.write(blockTag, one);
-      context.write(transactionTag, result);
+	  String outputFileName = getOutputFileName(key);
+      multipleOutputs.write(blockTag, one, outputFileName);
+      multipleOutputs.write(transactionTag, result, outputFileName);
     }
+
+	public void cleanup(Context context) throws IOException, InterruptedException {
+		multipleOutputs.close();
+	}
+
+	public String getOutputFileName(BlockWritable key) {
+		return key.getHash().toString();
+	}
   }
 
   public static void main(String[] args) throws Exception {
@@ -116,6 +133,7 @@ public class ReduceBlockchain {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(IntWritable.class);
     job.setInputFormatClass(BlockFileInputFormat.class);
+	job.setOutputFormatClass(TextOutputFormat.class);
     FileInputFormat.addInputPath(job, new Path(args[0]));
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
     System.exit(job.waitForCompletion(true) ? 0 : 1);
