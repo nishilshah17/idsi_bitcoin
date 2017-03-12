@@ -44,11 +44,10 @@ public class ReduceBlockchain {
         //get block
         Block block = getBlock(value.getBytes());
 
-        BlockWritable bw = new BlockWritable(block.getHash().toString());
+        BlockWritable bw = new BlockWritable(block);
         //get transactions
         for(Transaction tx : block.getTransactions()) {
-            TransactionWritable tw = new TransactionWritable(tx.getHash().toString());
-            context.write(bw, tw);
+            context.write(bw, new TransactionWritable(tx));
         }
     }
 

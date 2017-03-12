@@ -7,6 +7,8 @@ import java.io.DataInput;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.Text;
 
+import org.bitcoinj.core.Transaction;
+
 public class TransactionWritable implements WritableComparable<TransactionWritable> {
 
     private Text hash;
@@ -15,8 +17,8 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         this.hash = new Text();
     }
 
-    public TransactionWritable(String hash) {
-        this.hash = new Text(hash);
+    public TransactionWritable(Transaction tx) {
+        this.hash = new Text(tx.getHash().toString());
     }
 
     public void set(Text hash) {
