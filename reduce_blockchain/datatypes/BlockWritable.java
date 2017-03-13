@@ -12,42 +12,42 @@ import org.bitcoinj.core.Block;
 
 public class BlockWritable implements WritableComparable<BlockWritable> {
 
-    private Text hash;
-    private Text prevHash;
-    private Text merkleRoot;
-    private Text time;
+    private String hash;
+    private String prevHash;
+    private String merkleRoot;
+    private String time;
     private long version;
     private int transactionCount;
 
     public BlockWritable() {
-        this.hash = new Text();
-        this.prevHash = new Text();
-        this.merkleRoot = new Text();
-        this.time = new Text();
+		hash = new String();
+		prevHash = new String();
+		merkleRoot = new String();
+		time = new String();
     }
 
     public BlockWritable(Block block) {
-        this.hash = new Text(block.getHashAsString());   
-        this.prevHash = new Text(block.getPrevBlockHash().toString());
-        this.merkleRoot = new Text(block.getMerkleRoot().toString());
-        this.time = new Text(block.getTime().toString());
+        this.hash = block.getHashAsString();   
+        this.prevHash = block.getPrevBlockHash().toString();
+        this.merkleRoot = block.getMerkleRoot().toString();
+        this.time = block.getTime().toString();
         this.version = block.getVersion();
         this.transactionCount = block.getTransactions().size();
     }
 
-    public Text getHash() {
+    public String getHash() {
         return hash;
     }
 
-    public Text getPrevHash() {
+    public String getPrevHash() {
         return prevHash;
     }
 
-    public Text getMerkleRoot() {
+    public String getMerkleRoot() {
         return merkleRoot;
     }
 
-    public Text getTime() {
+    public String getTime() {
         return time;
     }
 
@@ -61,20 +61,20 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
 
     @Override
     public void write(DataOutput out) throws IOException {
-        hash.write(out);
-        prevHash.write(out);
-        merkleRoot.write(out);
-        time.write(out);
+        out.writeUTF(hash);
+        out.writeUTF(prevHash);
+        out.writeUTF(merkleRoot);
+        out.writeUTF(time);
         out.writeLong(version);
         out.writeInt(transactionCount);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        hash.readFields(in);
-        prevHash.readFields(in);
-        merkleRoot.readFields(in);
-        time.readFields(in);
+        hash = in.readUTF();
+		prevHash = in.readUTF();
+		merkleRoot = in.readUTF();
+		time = in.readUTF();
         version = in.readLong();
         transactionCount = in.readInt();
     }
@@ -97,4 +97,9 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
     public int hashCode() {
         return hash.hashCode();
     }
+
+	public Text toText() {
+		String str = hash + "," + prevHash + "," + merkleRoot + "," + time + "," + Long.toString(version) + "," + Integer.toString(transactionCount);
+		return new Text(str);
+	}
 }

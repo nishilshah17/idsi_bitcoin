@@ -11,32 +11,44 @@ import org.bitcoinj.core.Transaction;
 
 public class TransactionWritable implements WritableComparable<TransactionWritable> {
 
-    private Text hash;
+    private String hash;
+	private String time;
+	private long value;
+	private long fee;
+	private boolean isCoinBase;
 
     public TransactionWritable() {
-        this.hash = new Text();
+        this.hash = new String();
+		this.time = new String();
     }
 
     public TransactionWritable(Transaction tx) {
-        this.hash = new Text(tx.getHash().toString());
+        this.hash = tx.getHashAsString();
+		this.time = tx.getUpdateTime().toString();
+		this.fee = (tx.getFee() == null ? 0 : tx.getFee().getValue());
+		this.isCoinBase = tx.isCoinBase();
     }
 
-    public void set(Text hash) {
-        this.hash = hash;
-    }
-
-    public Text getHash() {
+    public String getHash() {
         return hash;
     }
 
     @Override
     public void write(DataOutput out) throws IOException {
-        hash.write(out);
+        out.writeUTF(hash);
+		out.writeUTF(time);
+		//out.writeLong(value);
+		out.writeLong(fee);
+		out.writeBoolean(isCoinBase);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        hash.readFields(in);
+		hash = in.readUTF();
+		time = in.readUTF();
+		//value = in.readLong();
+		fee = in.readLong();
+		isCoinBase = in.readBoolean();
     }
 
     @Override
@@ -57,4 +69,9 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     public int hashCode() {
         return hash.hashCode();
     }
+
+	public Text toText() {
+		String str = hash + "," + time + "," + Long.toString(fee) + "," + Boolean.toString(isCoinBase);
+		return new Text(str);
+	}
 } 

@@ -4,6 +4,11 @@ import java.util.StringTokenizer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Calendar;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -88,7 +93,6 @@ public class ReduceBlockchain {
   }
 
   public static class BlockReducer extends Reducer<BlockWritable, TransactionWritable, Text, IntWritable> {
-    private IntWritable result = new IntWritable();
     private IntWritable one = new IntWritable(1);
     private Text blockTag = new Text("block");
     private Text transactionTag = new Text("transaction");
@@ -100,14 +104,11 @@ public class ReduceBlockchain {
 	}
 
     public void reduce(BlockWritable key, Iterable<TransactionWritable> values, Context context) throws IOException, InterruptedException {
-      int sum = 0;
-      for (TransactionWritable tx : values) {
-        sum += 1;
-      }
-      result.set(sum);
 	  String outputFileName = getOutputFileName(key);
-      multipleOutputs.write(blockTag, one, outputFileName);
-      multipleOutputs.write(transactionTag, result, outputFileName);
+      multipleOutputs.write(key.toText(), one, outputFileName);
+      for (TransactionWritable tx : values) {
+      	multipleOutputs.write(tx.toText(), one, outputFileName);
+	  }
     }
 
 	public void cleanup(Context context) throws IOException, InterruptedException {
@@ -115,7 +116,18 @@ public class ReduceBlockchain {
 	}
 
 	public String getOutputFileName(BlockWritable key) {
-		return key.getHash().toString();
+		String fileName;
+		try {
+			String time = key.getTime();
+			DateFormat dateFormat = new SimpleDateFormat();
+			Date date = dateFormat.parse(time);
+			Calendar calendar = Calendar.getInstance();
+			calendar.setTime(date);
+			fileName = calendar.get(Calendar.MONTH) + "-" + calendar.get(Calendar.YEAR);
+		} catch (ParseException pe) {
+			fileName = "date-fail";
+		}
+	  	return fileName;
 	}
   }
 
