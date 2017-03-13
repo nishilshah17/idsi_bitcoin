@@ -119,7 +119,7 @@ public class ReduceBlockchain {
 		String fileName;
 		try {
 			String time = key.getTime();
-			DateFormat dateFormat = new SimpleDateFormat();
+			DateFormat dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy");
 			Date date = dateFormat.parse(time);
 			Calendar calendar = Calendar.getInstance();
 			calendar.setTime(date);
