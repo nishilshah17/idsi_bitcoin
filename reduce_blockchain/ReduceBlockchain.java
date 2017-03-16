@@ -9,6 +9,7 @@ import java.util.Calendar;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
+import java.text.DateFormatSymbols;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -123,7 +124,8 @@ public class ReduceBlockchain {
 			Date date = dateFormat.parse(time);
 			Calendar calendar = Calendar.getInstance();
 			calendar.setTime(date);
-			fileName = calendar.get(Calendar.MONTH) + "-" + calendar.get(Calendar.YEAR);
+            String month = new DateFormatSymbols().getMonths()[calendar.get(Calendar.MONTH)];
+			fileName = month + "-" + calendar.get(Calendar.YEAR);
 		} catch (ParseException pe) {
 			fileName = "date-fail";
 		}
