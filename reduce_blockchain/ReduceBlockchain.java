@@ -50,16 +50,20 @@ public class ReduceBlockchain {
         public void map(NullWritable key, BytesWritable value, Context context) throws IOException, InterruptedException {
             //get block
             Block block = BlockUtils.getBlock(value.getBytes());
-            BlockWritable bw = new BlockWritable(block);
+            BlockWritable blockWritable = new BlockWritable(block);
+            String blockHash = blockWritable.getHash();
 
             //get transactions
-            for(Transaction tx : block.getTransactions()) {
-                context.write(bw, new TransactionWritable(tx));
+            for(Transaction transaction : block.getTransactions()) {
+                context.write(blockWritable, new TransactionWritable(transaction, blockHash));
             }
         }
     }
 
     public static class BlockReducer extends Reducer<BlockWritable, TransactionWritable, Text, IntWritable> {
+        private final String BLOCK_SUFFIX = "-blocks";
+        private final String TRANSACTION_SUFFIX = "-transactions";
+
         private IntWritable one = new IntWritable(1);
         private Text blockTag = new Text("block");
         private Text transactionTag = new Text("transaction");
@@ -71,10 +75,10 @@ public class ReduceBlockchain {
         }
 
         public void reduce(BlockWritable key, Iterable<TransactionWritable> values, Context context) throws IOException, InterruptedException {
-            String outputFileName = getOutputFileName(key);
-            multipleOutputs.write(key.toText(), one, outputFileName);
-            for (TransactionWritable tx : values) {
-                multipleOutputs.write(tx.toText(), one, outputFileName);
+            String[] outputFileNames = getOutputFileNames(key);
+            multipleOutputs.write(key.toText(), one, outputFileNames[0]);
+            for (TransactionWritable transactionWritable : values) {
+                multipleOutputs.write(transactionWritable.toText(), one, outputFileNames[1]);
             }
         }
 
@@ -82,8 +86,9 @@ public class ReduceBlockchain {
             multipleOutputs.close();
         }
 
-        public String getOutputFileName(BlockWritable key) {
+        public String[] getOutputFileNames(BlockWritable key) {
             String fileName;
+            String[] fileNames = new String[2];
             try {
                 String time = key.getTime();
                 DateFormat dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy");
@@ -95,7 +100,9 @@ public class ReduceBlockchain {
             } catch (ParseException pe) {
                 fileName = "date-fail";
             }
-            return fileName;
+            fileNames[0] = fileName + BLOCK_SUFFIX;
+            fileNames[1] = fileName + TRANSACTION_SUFFIX;
+            return fileNames;
         }
     }
 
