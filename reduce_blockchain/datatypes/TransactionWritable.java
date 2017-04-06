@@ -16,6 +16,11 @@ import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionInput;
 import org.bitcoinj.core.TransactionOutput;
+import org.bitcoinj.core.Address;
+import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.params.MainNetParams;
+
+import blockparser.BlockUtils;
 
 public class TransactionWritable implements WritableComparable<TransactionWritable> {
 
@@ -27,6 +32,10 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 	private boolean isCoinBase;
     private String inputs;
     private String outputs;
+    private String inputValues;
+    private String outputValues;
+
+    private final NetworkParameters NETWORK_PARAMETERS = BlockUtils.getNetworkParameters();
 
     public TransactionWritable() {
         this.blockHash = new String();
@@ -34,6 +43,8 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		this.time = new String();
         this.inputs = new String();
         this.outputs = new String();
+        this.inputValues = new String();
+        this.outputValues = new String();
     }
 
     public TransactionWritable(Transaction tx, String blockHash) {
@@ -43,8 +54,26 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		this.fee = (tx.getFee() == null ? 0 : tx.getFee().getValue());
         this.size = tx.getMessageSize();
 		this.isCoinBase = tx.isCoinBase();
-        this.inputs = String.join(":", tx.getInputs().stream().map(input -> getInputValue(input)).collect(Collectors.toList()));
-        this.outputs = String.join(":", tx.getOutputs().stream().map(output -> getOutputValue(output)).collect(Collectors.toList()));
+        //this.inputs = String.join(":", tx.getOutputs().stream().map(input -> getInputAddress(input)).collect(Collectors.toList()));
+        this.outputs = String.join(":", tx.getOutputs().stream().map(output -> getOutputAddress(output)).collect(Collectors.toList()));
+        this.inputValues = String.join(":", tx.getInputs().stream().map(input -> getInputValue(input)).collect(Collectors.toList()));
+        this.outputValues = String.join(":", tx.getOutputs().stream().map(output -> getOutputValue(output)).collect(Collectors.toList()));
+    }
+
+    private String getInputAddress(TransactionInput input) {
+        //Address inputAddress = output.getAddressFromP2PKHScript(NETWORK_PARAMETERS);
+        Address inputAddress = null;
+        return (inputAddress == null ? "null" : inputAddress.toString()); 
+    }
+
+    private String getOutputAddress(TransactionOutput output) {
+        Address outputAddress = output.getAddressFromP2PKHScript(NETWORK_PARAMETERS);
+        return (outputAddress == null ? getAlternateOutputAddress(output) : outputAddress.toString());
+    }
+
+    private String getAlternateOutputAddress(TransactionOutput output) {
+        Address outputAddress = output.getAddressFromP2SH(NETWORK_PARAMETERS);
+        return (outputAddress == null ? "null" : outputAddress.toString());
     }
 
     private String getInputValue(TransactionInput input) {
@@ -71,8 +100,10 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		out.writeLong(fee);
         out.writeInt(size);
 		out.writeBoolean(isCoinBase);
-        out.writeUTF(inputs);
+        //out.writeUTF(inputs);
         out.writeUTF(outputs);
+        out.writeUTF(inputValues);
+        out.writeUTF(outputValues);
     }
 
     @Override
@@ -83,8 +114,10 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		fee = in.readLong();
         size = in.readInt();
 		isCoinBase = in.readBoolean();
-        inputs = in.readUTF();
+        //inputs = in.readUTF();
         outputs = in.readUTF();
+        inputValues = in.readUTF();
+        outputValues = in.readUTF();
     }
 
     @Override
@@ -113,8 +146,10 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         str += "," + Long.toString(fee);
         str += "," + size;
         str += "," + Boolean.toString(isCoinBase);
-        str += "," + inputs;
+        //str += "," + inputs;
         str += "," + outputs;
+        str += "," + inputValues;
+        str += "," + outputValues;
 		return new Text(str);
 	}
 } 
