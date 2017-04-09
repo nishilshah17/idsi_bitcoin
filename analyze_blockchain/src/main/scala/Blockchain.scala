@@ -3,17 +3,36 @@
   */
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkConf;
+import java.text.SimpleDateFormat;
+import java.io._;
 
 object Blockchain {
+  def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit) {
+    val p = new java.io.PrintWriter(f)
+    try { op(p) } finally { p.close() }
+  }
+
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setAppName("Blockchain").setMaster("local")
     val sc = new SparkContext(conf)
 
-    val filePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/January-2013-r-00000"
-    val lines = sc.textFile(filePath)
-    val transactions = lines.map(line => line.split(",")).filter(arr => arr(2) == "0").map(arr => (arr(1), arr))
-    val count = transactions.count()
+    val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
+    val blockFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*-blocks-r-00000"
+    val transactionFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*-transactions-r-00000"
+    val outputFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_output/new_addresses.txt"
 
-    println(count)
+    val blockLines = sc.textFile(blockFilePath)
+    val transactionLines = sc.textFile(transactionFilePath)
+    val blocks = blockLines.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3))))
+    val transactions = transactionLines.map(line => line.split(","))
+      .flatMap(arr => arr(6).split(":").map(address => (arr(0), address))).filter(tx => tx._2 != "null")
+    val addressFirstSeen = blocks.join(transactions).map(entry => (entry._2._2, (entry._1, entry._2._1)))
+      .reduceByKey((a, b) => if(a._2.before(b._2)) a else b)
+    val blocksFirstSeen = addressFirstSeen.map(entry => (entry._2, 1)).reduceByKey(_ + _)
+      .map(entry => (entry._1._1, entry._1._2, entry._2)).collect()
+
+    printToFile(new File(outputFilePath)) { printer =>
+      blocksFirstSeen.foreach(printer.println)
+    }
   }
 }
