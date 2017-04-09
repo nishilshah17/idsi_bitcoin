@@ -19,7 +19,7 @@ object Blockchain {
     val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
     val blockFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*-blocks-r-00000"
     val transactionFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*-transactions-r-00000"
-    val outputFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/output.txt"
+    val outputFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_output/new_addresses.txt"
 
     val blockLines = sc.textFile(blockFilePath)
     val transactionLines = sc.textFile(transactionFilePath)
@@ -28,7 +28,8 @@ object Blockchain {
       .flatMap(arr => arr(6).split(":").map(address => (arr(0), address))).filter(tx => tx._2 != "null")
     val addressFirstSeen = blocks.join(transactions).map(entry => (entry._2._2, (entry._1, entry._2._1)))
       .reduceByKey((a, b) => if(a._2.before(b._2)) a else b)
-    val blocksFirstSeen = addressFirstSeen.map(_.swap).map(entry => (entry._1, 1)).reduceByKey(_ + _).collect()
+    val blocksFirstSeen = addressFirstSeen.map(entry => (entry._2, 1)).reduceByKey(_ + _)
+      .map(entry => (entry._1._1, entry._1._2, entry._2)).collect()
 
     printToFile(new File(outputFilePath)) { printer =>
       blocksFirstSeen.foreach(printer.println)
