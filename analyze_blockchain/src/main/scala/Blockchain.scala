@@ -17,8 +17,8 @@ object Blockchain {
     val sc = new SparkContext(conf)
 
     val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
-    val blockFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*-blocks-r-00000"
-    val transactionFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*-transactions-r-00000"
+    val blockFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*/*-blocks-r-00000"
+    val transactionFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*/*-transactions-r-00000"
     val outputFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_output/new_addresses.txt"
 
     val blockLines = sc.textFile(blockFilePath)
