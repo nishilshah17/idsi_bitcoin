@@ -31,7 +31,7 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 	private long fee;
     private int size;
 	private boolean isCoinBase;
-    private String inputs;
+    private String[] inputSplit = new String[2];
     private String[] outputSplit = new String[4];
     private String inputValues;
     private String outputValues;
@@ -42,7 +42,7 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         this.blockHash = new String();
         this.hash = new String();
 		this.time = new String();
-        this.inputs = new String();
+        for(int i = 0; i < inputSplit.length; i++) this.inputSplit[i] = new String();
         for(int i = 0; i < outputSplit.length; i++) this.outputSplit[i] = new String();
         this.inputValues = new String();
         this.outputValues = new String();
@@ -55,21 +55,38 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		this.fee = (tx.getFee() == null ? 0 : tx.getFee().getValue());
         this.size = tx.getMessageSize();
 		this.isCoinBase = tx.isCoinBase();
-        //this.inputs = String.join(":", tx.getOutputs().stream().map(input -> getInputAddress(input)).collect(Collectors.toList()));
+        String inputs = String.join(":", tx.getInputs().stream().map(input -> getInputAddress(input)).collect(Collectors.toList()));
         String outputs = String.join(":", tx.getOutputs().stream().map(output -> getOutputAddress(output)).collect(Collectors.toList()));
-        final int mid = outputs.length() / 2;
-        final int quarter = mid / 2;
-        this.outputSplit[0] = outputs.substring(0, quarter);
-        this.outputSplit[1] = outputs.substring(quarter, mid);
-        this.outputSplit[2] = outputs.substring(mid, mid + quarter);
-        this.outputSplit[3] = outputs.substring(mid + quarter);
+        setInputs(inputs);
+        setOutputs(outputs);
         this.inputValues = String.join(":", tx.getInputs().stream().map(input -> getInputValue(input)).collect(Collectors.toList()));
         this.outputValues = String.join(":", tx.getOutputs().stream().map(output -> getOutputValue(output)).collect(Collectors.toList()));
     }
 
+    private void setInputs(String inputs) {
+        int mid = inputs.length() / 2;
+
+        this.inputSplit[0] = inputs.substring(0, mid);
+        this.inputSplit[1] = inputs.substring(mid);
+    }
+
+    private void setOutputs(String outputs) {
+        int mid = outputs.length() / 2;
+        int quarter = mid / 2;
+
+        this.outputSplit[0] = outputs.substring(0, quarter);
+        this.outputSplit[1] = outputs.substring(quarter, mid);
+        this.outputSplit[2] = outputs.substring(mid, mid + quarter);
+        this.outputSplit[3] = outputs.substring(mid + quarter);
+    }
+
     private String getInputAddress(TransactionInput input) {
-        //Address inputAddress = output.getAddressFromP2PKHScript(NETWORK_PARAMETERS);
-        Address inputAddress = null;
+        Address inputAddress;
+        try {
+            inputAddress = input.getFromAddress();
+        } catch (ScriptException e) {
+            inputAddress = null;
+        }
         return (inputAddress == null ? "null" : inputAddress.toString()); 
     }
 
@@ -117,7 +134,7 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		out.writeLong(fee);
         out.writeInt(size);
 		out.writeBoolean(isCoinBase);
-        //out.writeUTF(inputs);
+        for(int i = 0; i < inputSplit.length; i++) out.writeUTF(inputSplit[i]);
         for(int i = 0; i < outputSplit.length; i++) out.writeUTF(outputSplit[i]);
         out.writeUTF(inputValues);
         out.writeUTF(outputValues);
@@ -131,7 +148,7 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 		fee = in.readLong();
         size = in.readInt();
 		isCoinBase = in.readBoolean();
-        //inputs = in.readUTF();
+        for(int i = 0; i < inputSplit.length; i++) inputSplit[i] = in.readUTF();
         for(int i = 0; i < outputSplit.length; i++) outputSplit[i] = in.readUTF();
         inputValues = in.readUTF();
         outputValues = in.readUTF();
@@ -163,7 +180,7 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         str += "," + Long.toString(fee);
         str += "," + size;
         str += "," + Boolean.toString(isCoinBase);
-        //str += "," + inputs;
+        str += "," + inputSplit[0] + inputSplit[1];
         str += "," + outputSplit[0] + outputSplit[1] + outputSplit[2] + outputSplit[3];
         str += "," + inputValues;
         str += "," + outputValues;
