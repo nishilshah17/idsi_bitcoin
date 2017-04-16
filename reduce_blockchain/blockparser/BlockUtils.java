@@ -23,38 +23,16 @@ public class BlockUtils {
     private static final String TRANSACTION_SUFFIX = "-transactions";
     private static final NetworkParameters NETWORK_PARAMETERS = MainNetParams.get();
 
-    public static Block getBlock(byte[] bytes) {
+    public static Block parseBlock(byte[] bytes) {
         org.bitcoinj.core.Context.getOrCreate(NETWORK_PARAMETERS);
 
-        int index = 0;
-        int mask = 0xff;
-        int nextChar = bytes[index++] & mask;
-        while (nextChar != -1) {
-            if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 24) & mask)) {
-                nextChar = bytes[index++] & mask;
-                continue;
-            }   
-            nextChar = bytes[index++] & mask;
-            if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 16) & mask))
-                continue;
-            nextChar = bytes[index++] & mask;
-            if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 8) & mask))
-                continue;
-            nextChar = bytes[index++] & mask;
-            if (nextChar == (NETWORK_PARAMETERS.getPacketMagic() & mask))
-                break;
-        }   
-        byte[] sizeBytes = Arrays.copyOfRange(bytes, index, index+4);
-        long size = Utils.readUint32BE(Utils.reverseBytes(sizeBytes), 0); 
-        index += 4;
-        byte[] blockBytes = Arrays.copyOfRange(bytes, index, index + (int)size);
-        Block nextBlock;
+        Block block;
         try {
-            nextBlock = NETWORK_PARAMETERS.getDefaultSerializer().makeBlock(blockBytes);
+            block = NETWORK_PARAMETERS.getDefaultSerializer().makeBlock(bytes);
         } catch (ProtocolException e) {
-            nextBlock = null;
+            block = null;
         }
-        return nextBlock;
+        return block;
     }
 
     public static String[] getOutputFileNames(BlockWritable key) {

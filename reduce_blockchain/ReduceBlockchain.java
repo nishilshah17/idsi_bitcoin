@@ -41,7 +41,7 @@ public class ReduceBlockchain {
 
         public void map(NullWritable key, BytesWritable value, Context context) throws IOException, InterruptedException {
             //get block
-            Block block = BlockUtils.getBlock(value.getBytes());
+            Block block = BlockUtils.parseBlock(value.getBytes());
             BlockWritable blockWritable = new BlockWritable(block);
             String blockHash = blockWritable.getHash();
 
