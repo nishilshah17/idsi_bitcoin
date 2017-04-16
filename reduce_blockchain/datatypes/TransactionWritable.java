@@ -27,13 +27,12 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 
     private String blockHash;
     private String hash;
-	private String time;
-	private long fee;
+    private String time;
+    private long fee;
     private int size;
-	private boolean isCoinBase;
+    private boolean isCoinBase;
     private String[] inputSplit = new String[2];
     private String[] outputSplit = new String[4];
-    private String inputValues;
     private String outputValues;
 
     private final NetworkParameters NETWORK_PARAMETERS = BlockUtils.getNetworkParameters();
@@ -41,25 +40,23 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     public TransactionWritable() {
         this.blockHash = new String();
         this.hash = new String();
-		this.time = new String();
+        this.time = new String();
         for(int i = 0; i < inputSplit.length; i++) this.inputSplit[i] = new String();
         for(int i = 0; i < outputSplit.length; i++) this.outputSplit[i] = new String();
-        this.inputValues = new String();
         this.outputValues = new String();
     }
 
     public TransactionWritable(Transaction tx, String blockHash) {
         this.blockHash = blockHash;
         this.hash = tx.getHashAsString();
-		this.time = tx.getUpdateTime().toString();
-		this.fee = (tx.getFee() == null ? 0 : tx.getFee().getValue());
+        this.time = tx.getUpdateTime().toString();
+        this.fee = (tx.getFee() == null ? 0 : tx.getFee().getValue());
         this.size = tx.getMessageSize();
-		this.isCoinBase = tx.isCoinBase();
+        this.isCoinBase = tx.isCoinBase();
         String inputs = String.join(":", tx.getInputs().stream().map(input -> getInputAddress(input)).collect(Collectors.toList()));
         String outputs = String.join(":", tx.getOutputs().stream().map(output -> getOutputAddress(output)).collect(Collectors.toList()));
         setInputs(inputs);
         setOutputs(outputs);
-        this.inputValues = String.join(":", tx.getInputs().stream().map(input -> getInputValue(input)).collect(Collectors.toList()));
         this.outputValues = String.join(":", tx.getOutputs().stream().map(output -> getOutputValue(output)).collect(Collectors.toList()));
     }
 
@@ -110,12 +107,6 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         return (outputAddress == null ? "null" : outputAddress.toString());
     }
 
-    private String getInputValue(TransactionInput input) {
-        Coin inputValue = input.getValue();
-        long satoshis = (inputValue != null ? inputValue.getValue() : 0);
-        return Long.toString(satoshis);
-    }
-
     private String getOutputValue(TransactionOutput output) {
         Coin outputValue = output.getValue();
         long satoshis = (outputValue != null ? outputValue.getValue() : 0);
@@ -126,31 +117,41 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         return hash;
     }
 
+    public String getInputs() {
+        String inputs = "";
+        for(int i = 0; i < inputSplit.length; i++) inputs += inputSplit[i];
+        return inputs;
+    }
+
+    public String getOutputs() {
+        String outputs = "";
+        for(int i = 0; i < outputSplit.length; i++) outputs += outputSplit[i];
+        return outputs;
+    }
+
     @Override
-    public void write(DataOutput out) throws IOException {
+     public void write(DataOutput out) throws IOException {
         out.writeUTF(blockHash);
         out.writeUTF(hash);
-		out.writeUTF(time);
-		out.writeLong(fee);
+        out.writeUTF(time);
+        out.writeLong(fee);
         out.writeInt(size);
-		out.writeBoolean(isCoinBase);
+        out.writeBoolean(isCoinBase);
         for(int i = 0; i < inputSplit.length; i++) out.writeUTF(inputSplit[i]);
         for(int i = 0; i < outputSplit.length; i++) out.writeUTF(outputSplit[i]);
-        out.writeUTF(inputValues);
         out.writeUTF(outputValues);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
         blockHash = in.readUTF();
-		hash = in.readUTF();
-		time = in.readUTF();
-		fee = in.readLong();
+        hash = in.readUTF();
+        time = in.readUTF();
+        fee = in.readLong();
         size = in.readInt();
-		isCoinBase = in.readBoolean();
+        isCoinBase = in.readBoolean();
         for(int i = 0; i < inputSplit.length; i++) inputSplit[i] = in.readUTF();
         for(int i = 0; i < outputSplit.length; i++) outputSplit[i] = in.readUTF();
-        inputValues = in.readUTF();
         outputValues = in.readUTF();
     }
 
@@ -162,7 +163,7 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         }
         return false;
     }
-    
+
     @Override
     public int compareTo(TransactionWritable other) {
         return hash.compareTo(other.hash);
@@ -173,17 +174,16 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         return hash.hashCode();
     }
 
-	public Text toText() {
-		String str = blockHash;
+    public Text toText() {
+        String str = blockHash;
         str += "," + hash;
         str += "," + time;
         str += "," + Long.toString(fee);
         str += "," + size;
         str += "," + Boolean.toString(isCoinBase);
-        str += "," + inputSplit[0] + inputSplit[1];
-        str += "," + outputSplit[0] + outputSplit[1] + outputSplit[2] + outputSplit[3];
-        str += "," + inputValues;
+        str += "," + getInputs();
+        str += "," + getOutputs();
         str += "," + outputValues;
-		return new Text(str);
-	}
+        return new Text(str);
+    }
 } 
