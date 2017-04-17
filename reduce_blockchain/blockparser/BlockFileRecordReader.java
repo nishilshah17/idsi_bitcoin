@@ -27,11 +27,10 @@ import blockparser.BlockUtils;
 class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
 
     private final NetworkParameters NETWORK_PARAMETERS = BlockUtils.getNetworkParameters();    
+    private final int mask = 0xff;
 
-    private int mask = 0xff;
     private int fileIndex = 0;
     private byte[] fileBytes;
-    private int blockCount = 0;
 
     private NullWritable key = NullWritable.get();
     private BytesWritable value = new BytesWritable();

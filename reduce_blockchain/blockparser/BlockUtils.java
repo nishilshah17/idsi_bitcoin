@@ -10,7 +10,6 @@ import java.util.Arrays;
 
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.Block;
-import org.bitcoinj.core.Utils;
 import org.bitcoinj.core.ProtocolException;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.params.MainNetParams;
