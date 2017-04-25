@@ -43,6 +43,7 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
         if(fileIndex < fileBytes.length) {
             int nextChar = fileBytes[fileIndex++] & mask;
             while (nextChar != -1) {
+                if(fileIndex >= fileBytes.length) return false;
                 if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 24) & mask)) {
                     nextChar = fileBytes[fileIndex++] & mask;
                     continue;
