@@ -78,6 +78,7 @@ public class ReduceBlockchain {
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
+        conf.setBoolean("mapreduce.map.out.compress", true);
         Job job = Job.getInstance(conf, "reduce_blockchain");
         //include jars in classpath
         job.setJar("rbc.jar");
@@ -90,6 +91,7 @@ public class ReduceBlockchain {
         job.setOutputValueClass(NullWritable.class);
         job.setInputFormatClass(BlockFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
+        job.setNumReduceTasks(8);
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);

@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.io.DataOutput;
 import java.io.DataInput;
 import java.util.Date;
+import java.math.BigInteger;
 
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.Text;
 
 import org.bitcoinj.core.Block;
+import org.bitcoinj.core.VerificationException;
 
 public class BlockWritable implements WritableComparable<BlockWritable> {
 
@@ -16,6 +18,7 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
     private String prevHash;
     private String merkleRoot;
     private String time;
+    private long work;
     private long version;
     private int transactionCount;
 
@@ -31,32 +34,27 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
         this.prevHash = block.getPrevBlockHash().toString();
         this.merkleRoot = block.getMerkleRoot().toString();
         this.time = block.getTime().toString();
+        this.work = getWork(block);
         this.version = block.getVersion();
         this.transactionCount = block.getTransactions().size();
     }
-
+    
     public String getHash() {
         return hash;
-    }
-
-    public String getPrevHash() {
-        return prevHash;
-    }
-
-    public String getMerkleRoot() {
-        return merkleRoot;
     }
 
     public String getTime() {
         return time;
     }
 
-    public long getVersion() {
-        return version;
-    }
-
-    public int getTransactionCount() {
-        return transactionCount;
+    private long getWork(Block block) {
+        BigInteger work;
+        try {
+            work = block.getWork();
+        } catch(VerificationException e) {
+            return 0;
+        }
+        return work.longValue();
     }
 
     @Override
@@ -65,6 +63,7 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
         out.writeUTF(prevHash);
         out.writeUTF(merkleRoot);
         out.writeUTF(time);
+        out.writeLong(work);
         out.writeLong(version);
         out.writeInt(transactionCount);
     }
@@ -75,6 +74,7 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
 		prevHash = in.readUTF();
 		merkleRoot = in.readUTF();
 		time = in.readUTF();
+        work = in.readLong();
         version = in.readLong();
         transactionCount = in.readInt();
     }
@@ -99,7 +99,13 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
     }
 
 	public Text toText() {
-		String str = hash + "," + prevHash + "," + merkleRoot + "," + time + "," + Long.toString(version) + "," + Integer.toString(transactionCount);
+		String str = hash;
+        str += "," + prevHash;
+        str += "," + merkleRoot;
+        str += "," + time;
+        str += "," + Long.toString(work);
+        str += "," + Long.toString(version);
+        str += "," + Integer.toString(transactionCount);
 		return new Text(str);
 	}
 }
