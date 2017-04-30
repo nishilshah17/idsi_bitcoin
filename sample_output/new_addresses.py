@@ -1,9 +1,12 @@
 from dateutil.parser import parse
+from datetime import datetime, date
 from bokeh.plotting import figure, output_file, show
+
+default_date = datetime.combine(date.today(), datetime.min.time()).replace(day=1)
 
 inputFilePath = "new_addresses.txt"
 data = [entry.strip("()\n").split(",") for entry in open(inputFilePath)]
-data = [(parse(entry[0]), entry[1]) for entry in data]
+data = [(parse(entry[0], default=default_date), entry[1]) for entry in data]
 data = sorted(data, key=lambda x: x[0])
 
 months = [entry[0] for entry in data]
