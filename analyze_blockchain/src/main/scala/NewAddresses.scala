@@ -22,7 +22,7 @@ object NewAddresses {
     //split data by commas
     val blocks = blockLines.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3))))
     val transactions = transactionLines.map(line => line.split(","))
-    val outputAddresses = transactions.flatMap(arr => arr(7).split(":").map(address => (arr(0), address)))
+    val outputAddresses = transactions.flatMap(arr => arr(7).split(":").map(addr => (arr(0), addr)))
       .filter(tx => tx._2 != "null")
     //get month each address was first used
     val addressFirstSeen = blocks.join(outputAddresses).map(entry => (entry._2._2, entry._2._1))

@@ -15,6 +15,11 @@ object AnalyzeBlockchain {
     println("Jobs: NewAddresses, AddressReuse")
   }
 
+  def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit): Unit = {
+    val p = new java.io.PrintWriter(f)
+    try { op(p) } finally { p.close() }
+  }
+
   def main(args: Array[String]): Unit = {
     val job = args(0)
     val inputPath = args(1)
