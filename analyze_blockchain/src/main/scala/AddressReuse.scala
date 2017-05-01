@@ -49,29 +49,29 @@ object AddressReuse {
     val addressUse = combined.map(entry => (entry._2._2, 1)).reduceByKey(_ + _)
     //key: count, value: num addresses used count times
     val addressUseTimes = addressUse.map(_.swap).map(entry => (entry._1, 1)).reduceByKey(_ + _)
-    val totalAddressUse: Float = addressUseTimes.map(entry => (0, entry._1 * entry._2)).reduceByKey(_ + _).first()._2
+    val totalAddressUse: Double = addressUseTimes.map(entry => (0, entry._1 * entry._2)).reduceByKey(_ + _).first()._2
     //only counting addresses used more than once
     val singleUseAddressCount = addressUseTimes.filter(entry => entry._1 == 1).first()._2
     val addressReuseTimes = addressUseTimes.filter(entry => entry._1 != 1)
-    val totalAddressReuse: Float = addressReuseTimes.map(entry => (0, entry._1 * entry._2)).reduceByKey(_ + _).first()._2
+    val totalAddressReuse: Double = addressReuseTimes.map(entry => (0, entry._1 * entry._2)).reduceByKey(_ + _).first()._2
 
     val datesAddressUsed = combined.map(entry => (entry._2._2, entry._2._1)).groupByKey()
-    val totalAvgUseTime = datesAddressUsed.map(entry => (0, averageReuse(entry._2))).reduceByKey(_ + _).first()._2
-    val totalAvgReuseTime = datesAddressUsed.filter(entry => entry._2.size > 1)
+    val totalAvgUseTime: Double = datesAddressUsed.map(entry => (0, averageReuse(entry._2))).reduceByKey(_ + _).first()._2
+    val totalAvgReuseTime: Double = datesAddressUsed.filter(entry => entry._2.size > 1)
       .map(entry => (0, averageReuse(entry._2))).reduceByKey(_ + _).first()._2
 
     //calculations
     val uniqueAddressCount = addressUse.count()
     val averageAddressUse = totalAddressUse / uniqueAddressCount
     val averageAddressReuse = totalAddressReuse / (uniqueAddressCount - singleUseAddressCount)
-    val averageUseTime = totalAvgUseTime / uniqueAddressCount
-    val averageReuseTime = totalAvgReuseTime / (uniqueAddressCount - singleUseAddressCount)
+    val averageUseTime = totalAvgUseTime / uniqueAddressCount / 1000
+    val averageReuseTime = totalAvgReuseTime / (uniqueAddressCount - singleUseAddressCount) / 1000
     var stats = "Unique Addresses: " + uniqueAddressCount + "\n"
     stats += "Single Use Addresses: " + singleUseAddressCount + "\n"
     stats += "Avg Times Address Used: " + averageAddressUse + "\n"
     stats += "Avg Times Address Used (omitting single use addresses): " + averageAddressReuse + "\n"
-    stats += "Avg Time Between Address Use: " + averageUseTime.toString + "\n"
-    stats += "Avg Time Between Address Use (omitting single use addresses): " + averageReuseTime.toString()
+    stats += "Avg Time Between Address Use: " + averageUseTime + "\n"
+    stats += "Avg Time Between Address Use (omitting single use addresses): " + averageReuseTime
 
     //save output
     addressUseTimes.repartition(1).saveAsTextFile(outputFilePath + "/address_use_times")
