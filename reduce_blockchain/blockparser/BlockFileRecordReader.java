@@ -18,63 +18,39 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Utils;
-import org.bitcoinj.params.MainNetParams;
-
 import blockparser.BlockUtils;
 
 class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
 
-    private final NetworkParameters NETWORK_PARAMETERS = BlockUtils.getNetworkParameters();    
-    private final int mask = 0xff;
-
-    private int fileIndex = 0;
-    private byte[] fileBytes;
-
     private NullWritable key = NullWritable.get();
     private BytesWritable value = new BytesWritable();
+
+    private InputSplit inputSplit;
+    private TaskAttemptContext taskAttemptContext;
+
+    private boolean processedFile;
     
     public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
-        this.fileBytes = readFile(inputSplit, taskAttemptContext.getConfiguration());
+        this.inputSplit = inputSplit;
+        this.taskAttemptContext = taskAttemptContext;    
+        this.processedFile = false;
     }
 
     public boolean nextKeyValue() throws IOException {
-        if(fileIndex < fileBytes.length) {
-            int nextChar = fileBytes[fileIndex++] & mask;
-            while (nextChar != -1) {
-                if(fileIndex >= fileBytes.length) return false;
-                if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 24) & mask)) {
-                    nextChar = fileBytes[fileIndex++] & mask;
-                    continue;
-                }   
-                nextChar = fileBytes[fileIndex++] & mask;
-                if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 16) & mask))
-                    continue;
-                nextChar = fileBytes[fileIndex++] & mask;
-                if (nextChar != ((NETWORK_PARAMETERS.getPacketMagic() >>> 8) & mask))
-                    continue;
-                nextChar = fileBytes[fileIndex++] & mask;
-                if (nextChar == (NETWORK_PARAMETERS.getPacketMagic() & mask))
-                    break;
-            }   
-            byte[] sizeBytes = Arrays.copyOfRange(fileBytes, fileIndex, fileIndex+4);
-            long size = Utils.readUint32BE(Utils.reverseBytes(sizeBytes), 0); 
-            fileIndex += 4;
-            byte[] blockBytes = Arrays.copyOfRange(fileBytes, fileIndex, fileIndex + (int)size);
-            fileIndex += (int)size;
-            //set value
-            value.set(blockBytes, 0, blockBytes.length);
-            return true;
+        if(!processedFile) {
+            byte[] fileBytes = readFile();
+            value.set(fileBytes, 0, fileBytes.length);
+            return processedFile = true;
         }
         return false;
     }
    
-    private byte[] readFile(InputSplit inputSplit, Configuration conf) throws IOException {
+    private byte[] readFile() throws IOException {
         //setup
+        Configuration conf = taskAttemptContext.getConfiguration();
         FileSplit fileSplit = (FileSplit)inputSplit;
         int splitLength = (int)fileSplit.getLength();
-        byte[] blockBytes = new byte[splitLength];
+        byte[] blockFileBytes = new byte[splitLength];
         //get file
         Path filePath = fileSplit.getPath();
         FileSystem fileSystem = filePath.getFileSystem(conf);
@@ -82,11 +58,11 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
         FSDataInputStream in = null;
         try {
             in = fileSystem.open(filePath);
-            IOUtils.readFully(in, blockBytes, 0, blockBytes.length);
+            IOUtils.readFully(in, blockFileBytes, 0, blockFileBytes.length);
         } finally {
             IOUtils.closeStream(in);
         }
-        return blockBytes;
+        return blockFileBytes;
     }
 
     @Override
@@ -101,7 +77,7 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
     
     @Override
     public float getProgress() throws IOException, InterruptedException {
-        return ((float) fileIndex / fileBytes.length);
+        return (processedFile ? (float)1.0 : (float)0.0);
     }
 
     @Override
