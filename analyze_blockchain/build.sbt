@@ -6,9 +6,9 @@ scalaVersion := "2.11.7"
 val sparkVersion = "2.1.0"
 
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion, //% "provided"
-  "org.apache.spark" %% "spark-sql" % sparkVersion, //% "provided"
-  "org.apache.spark" %% "spark-yarn" % sparkVersion //% "provided"
+  "org.apache.spark" %% "spark-core" % sparkVersion,
+  "org.apache.spark" %% "spark-sql" % sparkVersion,
+  "org.apache.spark" %% "spark-yarn" % sparkVersion
 )
 
 assemblyMergeStrategy in assembly := {
