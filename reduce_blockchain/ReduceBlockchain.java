@@ -12,6 +12,7 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -32,30 +33,52 @@ import blockparser.BlockFileInputFormat;
 import blockparser.BlockUtils;
 import datatypes.BlockWritable;
 import datatypes.TransactionWritable;
+import datatypes.MessageWritable;
 
 public class ReduceBlockchain {
 
-    public static class BlockMapper extends Mapper<NullWritable, BytesWritable, BlockWritable, TransactionWritable> {
+    public static class BlockMapper extends Mapper<NullWritable, BytesWritable, Text, MessageWritable> {
 
-        private Text word = new Text();
+        private byte[] fileBytes;
+        private int fileIndex;
+
+        private Text outKey;
+        private MessageWritable outValue;
 
         public void map(NullWritable key, BytesWritable value, Context context) throws IOException, InterruptedException {
-            //get block
-            Block block = BlockUtils.parseBlock(value.getBytes());
-            BlockWritable blockWritable = new BlockWritable(block);
-            String blockHash = blockWritable.getHash();
+            fileBytes = value.getBytes();
+            fileIndex = 0;
 
-            //get transactions
-            for(Transaction transaction : block.getTransactions()) {
-                context.write(blockWritable, new TransactionWritable(transaction, blockHash));
+            byte[] nextBlockBytes;
+
+            while((nextBlockBytes = BlockUtils.nextBlockBytes(fileBytes, fileIndex)) != null) {
+                fileIndex += (4 + nextBlockBytes.length);
+
+                Block nextBlock = BlockUtils.parseBlock(nextBlockBytes);
+                if(nextBlock == null) continue; //error parsing block
+
+                //write block
+                BlockWritable blockWritable = new BlockWritable(nextBlock);
+                outKey = BlockUtils.getKey(blockWritable);
+                outValue = new MessageWritable(blockWritable);
+                context.write(outKey, outValue);
+
+                //write transactions
+                String blockHash = blockWritable.getHash();
+                for(Transaction transaction : nextBlock.getTransactions()) {
+                    TransactionWritable transactionWritable = new TransactionWritable(transaction, blockHash);
+                    outValue = new MessageWritable(transactionWritable);
+                    context.write(outKey, outValue);
+                }
             }
         }
     }
 
-    public static class BlockReducer extends Reducer<BlockWritable, TransactionWritable, Text, NullWritable> {
+    public static class BlockReducer extends Reducer<Text, MessageWritable, Text, NullWritable> {
 
-        private Text blockTag = new Text("block");
-        private Text transactionTag = new Text("transaction");
+        private String blockTag = "blocks";
+        private String transactionTag = "transactions";
+
         private NullWritable value = NullWritable.get();
         private MultipleOutputs multipleOutputs;
 
@@ -63,11 +86,15 @@ public class ReduceBlockchain {
             multipleOutputs = new MultipleOutputs(context);
         }
 
-        public void reduce(BlockWritable key, Iterable<TransactionWritable> values, Context context) throws IOException, InterruptedException {
-            String[] outputFileNames = BlockUtils.getOutputFileNames(key);
-            multipleOutputs.write(key.toText(), value, outputFileNames[0]);
-            for (TransactionWritable transactionWritable : values) {
-                multipleOutputs.write(transactionWritable.toText(), value, outputFileNames[1]);
+        public void reduce(Text key, Iterable<MessageWritable> values, Context context) throws IOException, InterruptedException {
+            for(MessageWritable messageWritable : values) {
+                Writable message = messageWritable.get();
+                if(message instanceof BlockWritable) {
+                    multipleOutputs.write(((BlockWritable)message).toText(), value, blockTag + key);
+                }
+                if(message instanceof TransactionWritable) {
+                    multipleOutputs.write(((TransactionWritable)message).toText(), value, transactionTag + key);
+                }
             }
         }
 
@@ -85,8 +112,8 @@ public class ReduceBlockchain {
         job.addFileToClassPath(new Path("/user/nishil/bitcoin/bitcoinj.jar"));
         job.setMapperClass(BlockMapper.class);
         job.setReducerClass(BlockReducer.class);
-        job.setMapOutputKeyClass(BlockWritable.class);
-        job.setMapOutputValueClass(TransactionWritable.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(MessageWritable.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(NullWritable.class);
         job.setInputFormatClass(BlockFileInputFormat.class);

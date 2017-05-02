@@ -27,7 +27,6 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 
     private String blockHash;
     private String hash;
-    private String time;
     private long value;
     private int size;
     private boolean isCoinBase;
@@ -40,7 +39,6 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     public TransactionWritable() {
         this.blockHash = new String();
         this.hash = new String();
-        this.time = new String();
         this.value = 0;
         this.isCoinBase = false;
         this.inputs = new String();
@@ -51,7 +49,6 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     public TransactionWritable(Transaction tx, String blockHash) {
         this.blockHash = blockHash;
         this.hash = tx.getHashAsString();
-        this.time = tx.getUpdateTime().toString();
         this.value = tx.getOutputSum().getValue();
         this.size = tx.getMessageSize();
         this.isCoinBase = tx.isCoinBase();
@@ -113,7 +110,6 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
      public void write(DataOutput out) throws IOException {
         out.writeUTF(blockHash);
         out.writeUTF(hash);
-        out.writeUTF(time);
         out.writeLong(value);
         out.writeInt(size);
         out.writeBoolean(isCoinBase);
@@ -126,12 +122,11 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     public void readFields(DataInput in) throws IOException {
         blockHash = in.readUTF();
         hash = in.readUTF();
-        time = in.readUTF();
         value = in.readLong();
         size = in.readInt();
         isCoinBase = in.readBoolean();
         inputs = readLongString(in);
-        inputs = readLongString(in);
+        outputs = readLongString(in);
         outputValues = readLongString(in);
     }
 
@@ -161,7 +156,6 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     public Text toText() {
         String str = blockHash;
         str += "," + hash;
-        str += "," + time;
         str += "," + Long.toString(value);
         str += "," + size;
         str += "," + Boolean.toString(isCoinBase);
