@@ -1,8 +1,8 @@
 name := "analyze_blockchain"
 
-version := "1.0"
+version := "1.3"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.10.4"
 val sparkVersion = "2.1.0"
 
 libraryDependencies ++= Seq(

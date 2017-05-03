@@ -4,10 +4,10 @@
 	<info
 		organisation="default"
 		module="analyze_blockchain_2.11"
-		revision="1.0"
+		revision="1.2"
 		conf="provided"
 		confs="compile, runtime, test, provided, optional, compile-internal, runtime-internal, test-internal, plugin, sources, docs, pom, scala-tool"
-		date="20170424015237"/>
+		date="20170502223923"/>
 	<dependencies>
 	</dependencies>
 </ivy-report>

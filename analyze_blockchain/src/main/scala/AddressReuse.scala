@@ -24,23 +24,26 @@ object AddressReuse {
   def run(inputPath: String, outputPath: String, sc: SparkContext) = {
     val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
 
-    //input
-    val blockFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*blocks*"
-    val transactionFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_data/*transactions*"
-    //output
-    val outputFilePath = "/Users/NishilShah/workspace/idsi_bitcoin/sample_output/address_reuse"
+    val inputAddressIndex = AnalyzeBlockchain.inputAddressIndex()
+    val outputAddressIndex = AnalyzeBlockchain.outputAddressIndex()
+
+    //input paths
+    val blocksPath = "hdfs://" + inputPath + "/blocks*"
+    val transactionsPath = "hdfs://" + inputPath + "/transactions*"
+    //output path
+    val outputFilePath = "hdfs://" + outputPath + "/address_reuse"
     val statsFilePath = outputFilePath + "/stats.txt"
 
     //import data
-    val blockLines = sc.textFile(blockFilePath)
-    val transactionLines = sc.textFile(transactionFilePath)
+    val blocksRDD = sc.textFile(blocksPath)
+    val transactionsRDD = sc.textFile(transactionsPath)
     //split data by commas
-    val blocks = blockLines.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3)).getTime))
-    val transactions = transactionLines.map(line => line.split(","))
+    val blocks = blocksRDD.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3)).getTime))
+    val transactions = transactionsRDD.map(line => line.split(","))
     //extract addresses from transactions
-    val inputAddresses = transactions.flatMap(arr => arr(6).split(":").map(addr => (arr(0), addr)))
+    val inputAddresses = transactions.flatMap(arr => arr(inputAddressIndex).split(":").map(addr => (arr(0), addr)))
       .filter(tx => tx._2 != "null")
-    val outputAddresses = transactions.flatMap(arr => arr(7).split(":").map(addr => (arr(0), addr)))
+    val outputAddresses = transactions.flatMap(arr => arr(outputAddressIndex).split(":").map(addr => (arr(0), addr)))
       .filter(tx => tx._2 != "null")
     val addresses = inputAddresses.union(outputAddresses)
     val combined = blocks.join(addresses)
@@ -74,7 +77,7 @@ object AddressReuse {
     stats += "Avg Time Between Address Use (omitting single use addresses): " + averageReuseTime
 
     //save output
-    addressUseTimes.repartition(1).saveAsTextFile(outputFilePath + "/address_use_times")
+    addressUseTimes.repartition(1).saveAsTextFile(outputFilePath)
     AnalyzeBlockchain.printToFile(new File(statsFilePath)) { printer => printer.println(stats)}
   }
 }

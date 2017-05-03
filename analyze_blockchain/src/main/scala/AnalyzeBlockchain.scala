@@ -7,12 +7,21 @@ import org.apache.spark.SparkConf
 object AnalyzeBlockchain {
   private def setSparkContext(): SparkContext = {
     val conf = new SparkConf().setAppName("AnalyzeBlockchain").setMaster("local")
+    conf.set("spark.local.dir", "/mnt/volume/tmp")
     new SparkContext(conf)
   }
 
   private def printUsageError() = {
     println("Arguments: <job> <input-path> <output-path>")
     println("Jobs: NewAddresses, AddressReuse")
+  }
+
+  def inputAddressIndex(): Int = {
+    5
+  }
+
+  def outputAddressIndex(): Int = {
+    6
   }
 
   def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit): Unit = {
@@ -27,7 +36,9 @@ object AnalyzeBlockchain {
 
     val sc = setSparkContext()
 
-    if(job == "NewAddresses") {
+    if(job == "BlockchainOverview") {
+      BlockchainOverview.run(inputPath, outputPath, sc)
+    } else if(job == "NewAddresses") {
       NewAddresses.run(inputPath, outputPath, sc)
     } else if(job == "AddressReuse") {
       AddressReuse.run(inputPath, outputPath, sc)

@@ -10,10 +10,12 @@ object NewAddresses {
     val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
     val newFormat = new SimpleDateFormat("MM yyyy")
 
-    //local input path: /Users/NishilShah/workspace/idsi_bitcoin/sample_data
+    val outputAddressIndex = AnalyzeBlockchain.outputAddressIndex()
+
+    //input paths
     val blocksPath = "hdfs://" + inputPath + "/blocks*"
     val transactionsPath = "hdfs://" + inputPath + "/transactions*"
-    //local output path: /Users/NishilShah/workspace/idsi_bitcoin/sample_output
+    //output path
     val outputFilePath = "hdfs://" + outputPath + "/new_addresses"
 
     //import data
@@ -22,7 +24,7 @@ object NewAddresses {
     //split data by commas
     val blocks = blocksRDD.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3))))
     val transactions = transactionsRDD.map(line => line.split(","))
-    val outputAddresses = transactions.flatMap(arr => arr(7).split(":").map(addr => (arr(0), addr)))
+    val outputAddresses = transactions.flatMap(arr => arr(outputAddressIndex).split(":").map(addr => (arr(0), addr)))
       .filter(tx => tx._2 != "null")
     //join blocks and output addresses
     val combined = blocks.join(outputAddresses).map(entry => (entry._2._2, entry._2._1))
