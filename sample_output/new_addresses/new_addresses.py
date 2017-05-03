@@ -13,6 +13,7 @@ months = [entry[0] for entry in data]
 counts = [entry[1] for entry in data]
 
 output_file("new_addresses.html")
-p = figure(title = "New Addresses Per Month", x_axis_label = "Time", y_axis_label = "# of Addresses", x_axis_type = "datetime")
+p = figure(title = "New Addresses Per Month", plot_width = 1100, x_axis_label = "Time", y_axis_label = "# of Addresses", x_axis_type = "datetime")
 p.line(months, counts, line_width = 2)
+
 show(p)

@@ -11,22 +11,24 @@ object NewAddresses {
     val newFormat = new SimpleDateFormat("MM yyyy")
 
     //local input path: /Users/NishilShah/workspace/idsi_bitcoin/sample_data
-    val blockFilePath = "hdfs://" + inputPath + "/blocks*"
-    val transactionFilePath = "hdfs://" + inputPath + "/transactions*"
+    val blocksPath = "hdfs://" + inputPath + "/blocks*"
+    val transactionsPath = "hdfs://" + inputPath + "/transactions*"
     //local output path: /Users/NishilShah/workspace/idsi_bitcoin/sample_output
     val outputFilePath = "hdfs://" + outputPath + "/new_addresses"
 
     //import data
-    val blockLines = sc.textFile(blockFilePath)
-    val transactionLines = sc.textFile(transactionFilePath)
+    val blocksRDD = sc.textFile(blocksPath)
+    val transactionsRDD = sc.textFile(transactionsPath)
     //split data by commas
-    val blocks = blockLines.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3))))
-    val transactions = transactionLines.map(line => line.split(","))
+    val blocks = blocksRDD.map(line => line.split(",")).map(arr => (arr(0), dateFormat.parse(arr(3))))
+    val transactions = transactionsRDD.map(line => line.split(","))
     val outputAddresses = transactions.flatMap(arr => arr(7).split(":").map(addr => (arr(0), addr)))
       .filter(tx => tx._2 != "null")
+    //join blocks and output addresses
+    val combined = blocks.join(outputAddresses).map(entry => (entry._2._2, entry._2._1))
     //get month each address was first used
-    val addressFirstSeen = blocks.join(outputAddresses).map(entry => (entry._2._2, entry._2._1))
-      .reduceByKey((a, b) => if(a.before(b)) a else b).map(entry => (entry._1, newFormat.format(entry._2)))
+    val addressFirstSeen = combined.reduceByKey((a, b) => if(a.before(b)) a else b)
+      .map(entry => (entry._1, newFormat.format(entry._2)))
     //get number of new addresses per month
     addressFirstSeen.map(entry => (entry._2, 1)).reduceByKey(_ + _).repartition(1).saveAsTextFile(outputFilePath)
   }
