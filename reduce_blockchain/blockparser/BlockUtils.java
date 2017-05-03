@@ -46,7 +46,7 @@ public class BlockUtils {
                 if (nextChar == (NETWORK_PARAMETERS.getPacketMagic() & mask))
                     break;
             }   
-            byte[] sizeBytes = Arrays.copyOfRange(fileBytes, fileIndex, fileIndex+4);
+            byte[] sizeBytes = Arrays.copyOfRange(fileBytes, fileIndex, fileIndex + 4);
             long size = Utils.readUint32BE(Utils.reverseBytes(sizeBytes), 0); 
             fileIndex += 4;
             byte[] blockBytes = Arrays.copyOfRange(fileBytes, fileIndex, fileIndex + (int)size);

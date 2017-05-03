@@ -28,21 +28,25 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
     private InputSplit inputSplit;
     private TaskAttemptContext taskAttemptContext;
 
-    private boolean processedFile;
+    private byte[] fileBytes;
+    private int fileIndex;
     
     public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
         this.inputSplit = inputSplit;
         this.taskAttemptContext = taskAttemptContext;    
-        this.processedFile = false;
+        this.fileBytes = readFile();
+        this.fileIndex = 0;
     }
 
     public boolean nextKeyValue() throws IOException {
-        if(!processedFile) {
-            byte[] fileBytes = readFile();
-            value.set(fileBytes, 0, fileBytes.length);
-            return processedFile = true;
+        byte[] blockBytes = BlockUtils.nextBlockBytes(fileBytes, fileIndex);
+
+        if(blockBytes != null) {
+            value.set(blockBytes, 0, blockBytes.length);
+            fileIndex += (4 + blockBytes.length);
+            return true;
         }
-        return false;
+        return false;    
     }
    
     private byte[] readFile() throws IOException {
@@ -77,7 +81,7 @@ class BlockFileRecordReader extends RecordReader<NullWritable, BytesWritable> {
     
     @Override
     public float getProgress() throws IOException, InterruptedException {
-        return (processedFile ? (float)1.0 : (float)0.0);
+        return (float)fileIndex / (float)fileBytes.length;
     }
 
     @Override

@@ -39,37 +39,25 @@ public class ReduceBlockchain {
 
     public static class BlockMapper extends Mapper<NullWritable, BytesWritable, Text, MessageWritable> {
 
-        private byte[] fileBytes;
-        private int fileIndex;
-
         private Text outKey;
         private MessageWritable outValue;
 
         public void map(NullWritable key, BytesWritable value, Context context) throws IOException, InterruptedException {
-            fileBytes = value.getBytes();
-            fileIndex = 0;
+            byte[] blockBytes = value.getBytes();
+            Block block = BlockUtils.parseBlock(blockBytes);
 
-            byte[] nextBlockBytes;
+            //write block
+            BlockWritable blockWritable = new BlockWritable(block);
+            outKey = BlockUtils.getKey(blockWritable);
+            outValue = new MessageWritable(blockWritable);
+            context.write(outKey, outValue);
 
-            while((nextBlockBytes = BlockUtils.nextBlockBytes(fileBytes, fileIndex)) != null) {
-                fileIndex += (4 + nextBlockBytes.length);
-
-                Block nextBlock = BlockUtils.parseBlock(nextBlockBytes);
-                if(nextBlock == null) continue; //error parsing block
-
-                //write block
-                BlockWritable blockWritable = new BlockWritable(nextBlock);
-                outKey = BlockUtils.getKey(blockWritable);
-                outValue = new MessageWritable(blockWritable);
+            //write transactions
+            String blockHash = blockWritable.getHash();
+            for(Transaction transaction : block.getTransactions()) {
+                TransactionWritable transactionWritable = new TransactionWritable(transaction, blockHash);
+                outValue = new MessageWritable(transactionWritable);
                 context.write(outKey, outValue);
-
-                //write transactions
-                String blockHash = blockWritable.getHash();
-                for(Transaction transaction : nextBlock.getTransactions()) {
-                    TransactionWritable transactionWritable = new TransactionWritable(transaction, blockHash);
-                    outValue = new MessageWritable(transactionWritable);
-                    context.write(outKey, outValue);
-                }
             }
         }
     }
