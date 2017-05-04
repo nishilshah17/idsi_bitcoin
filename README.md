@@ -1,6 +1,6 @@
 # Processing the Blockchain with Hadoop and Spark
 
-Check out the full technical report [here]().
+Check out the full technical report [here](https://github.com/nishilshah17/idsi_bitcoin/blob/master/blockchain_analysis.pdf).
 This project involves:
 
 **1. Downloading the blockchain as of April 11, 2017.**

@@ -49,7 +49,7 @@ object AddressReuse {
 
     //number of times each address used
     val addressUseCount = combined.map(entry => (entry._2._2, 1)).reduceByKey(_ + _)
-    //key: reuse count, value: num addresses used count times
+    //key: use count, value: num addresses used count times
     val addressUseTimes = addressUseCount.map(_.swap).map(entry => (entry._1, 1)).reduceByKey(_ + _)
 
     //total time between address reuse
