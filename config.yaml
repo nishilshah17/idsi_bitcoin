@@ -1,0 +1,18 @@
+version: 0.0.1
+report_key: blockchain_analysis
+report_title: Processing the Blockchain with Hadoop and Spark
+organizations:
+  - National Center For Supercomputing Applications (NCSA)
+  - Laboratory for Computation, Data, and Machine Learning
+  - Univeristy of Illinois
+authors:
+  Nishil Shah:
+    - 1
+    - 2
+    - 3
+  Professor Brunner:
+    - 1
+    - 2
+    - 3
+prereqs:
+  - None
