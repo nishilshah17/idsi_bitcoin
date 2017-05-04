@@ -22,12 +22,8 @@ import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import org.bitcoinj.core.Context;
 import org.bitcoinj.core.Block;
 import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.Utils;
-import org.bitcoinj.core.ProtocolException;
-import org.bitcoinj.utils.BlockFileLoader;
 
 import blockparser.BlockFileInputFormat;
 import blockparser.BlockUtils;
@@ -43,6 +39,7 @@ public class ReduceBlockchain {
         private MessageWritable outValue;
 
         public void map(NullWritable key, BytesWritable value, Context context) throws IOException, InterruptedException {
+            //parse block
             byte[] blockBytes = value.getBytes();
             Block block = BlockUtils.parseBlock(blockBytes);
 

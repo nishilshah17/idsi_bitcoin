@@ -23,10 +23,10 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
     private int transactionCount;
 
     public BlockWritable() {
-		hash = new String();
-		prevHash = new String();
-		merkleRoot = new String();
-		time = new String();
+        hash = new String();
+        prevHash = new String();
+        merkleRoot = new String();
+        time = new String();
     }
 
     public BlockWritable(Block block) {
@@ -38,7 +38,7 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
         this.version = block.getVersion();
         this.transactionCount = block.getTransactions().size();
     }
-    
+
     public String getHash() {
         return hash;
     }
@@ -71,9 +71,9 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
     @Override
     public void readFields(DataInput in) throws IOException {
         hash = in.readUTF();
-		prevHash = in.readUTF();
-		merkleRoot = in.readUTF();
-		time = in.readUTF();
+        prevHash = in.readUTF();
+        merkleRoot = in.readUTF();
+        time = in.readUTF();
         work = in.readLong();
         version = in.readLong();
         transactionCount = in.readInt();
@@ -92,20 +92,20 @@ public class BlockWritable implements WritableComparable<BlockWritable> {
     public int compareTo(BlockWritable other) {
         return hash.compareTo(other.hash);
     }
-    
+
     @Override
     public int hashCode() {
         return hash.hashCode();
     }
 
-	public Text toText() {
-		String str = hash;
+    public Text toText() {
+        String str = hash;
         str += "," + prevHash;
         str += "," + merkleRoot;
         str += "," + time;
         str += "," + Long.toString(work);
         str += "," + Long.toString(version);
         str += "," + Integer.toString(transactionCount);
-		return new Text(str);
-	}
+        return new Text(str);
+    }
 }

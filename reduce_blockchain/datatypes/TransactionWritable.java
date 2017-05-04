@@ -74,10 +74,10 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         } catch (ScriptException e) {
             outputAddress = null;
         }
-        return (outputAddress == null ? getAlternateOutputAddress(output) : outputAddress.toString());
+        return (outputAddress == null ? getP2SHOutputAddress(output) : outputAddress.toString());
     }
 
-    private String getAlternateOutputAddress(TransactionOutput output) {
+    private String getP2SHOutputAddress(TransactionOutput output) {
         Address outputAddress;
         try {
             outputAddress = output.getAddressFromP2SH(NETWORK_PARAMETERS);
