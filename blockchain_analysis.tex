@@ -350,7 +350,7 @@ public class MessageWritable extends GenericWritable {
 Usage of this class is shown in section 5.E.
 
 \subsection{MapReduce}
-We have shown the construction of all prerequisite components needed to write the main MapReduce driver. The driver consists of implementations of \lstinline{Mapper} and \lstinline{Reducer} and the main function where the job's configurations are set.
+We have constructed all prerequisite components needed to write the main MapReduce driver. The driver consists of implementations of \lstinline{Mapper} and \lstinline{Reducer} and the main function where the job's configurations are set.
 
 \subsubsection{Mapper}
 If you recall, our mapper receives a \lstinline{NullWritable} key and \lstinline{BytesWritable} value, the contents of a single block. The structure of our mapper class is:
@@ -492,15 +492,15 @@ The following sequence of commands compile the source code into a JAR file and r
 
 \section{Analyzing the Blockchain with Spark}
 \subsection{Project Setup}
-As mentioned earlier in the report, our Openstack cluster already has Spark install. For this part of the project, however, we will be developing off-cluster in \href{https://www.jetbrains.com/idea/}{Intellij IDEA}. Using the \href{https://github.com/sbt/sbt-assembly}{sbt-assembly} plugin, we can package our source code and all dependencies into a fat JAR and easily run it on the cluster. This is great because we do not have to worry about dependency differences between the local machine and the cluster.
+As mentioned earlier in the report, our Openstack cluster already has Spark installed. For this part of the project, however, we will be developing off-cluster in \href{https://www.jetbrains.com/idea/}{Intellij IDEA}. Using the \href{https://github.com/sbt/sbt-assembly}{sbt-assembly} plugin, we can package our source code and all dependencies into a fat JAR to run on the cluster. This is useful because we do not have to worry about dependency versioning differences between the local machine and the cluster.
 
-First, we create a new SBT project in Intellij IDEA, setting the Scala and SBT versions of our local machine. To add sbt-assembly to our project, we create an \lstinline{assembly.sbt} file in the main project directory and add this line to it:
+First, we create a new SBT project in Intellij IDEA and set the Scala and SBT versions of our local machine. To add sbt-assembly to our project, we create an \lstinline{assembly.sbt} file in the main project directory and add this line to it:
 
 \begin{lstlisting}[language=Scala]
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.4")
 \end{lstlisting}
 
-Pressing the "Import Project" button on the top right corner of Intellij refreshes its dependencies. Next we set other properties of the project in the \lstinline{build.sbt} file, including the scala version and spark libraries among other things. \lstinline{build.sbt} looks like this:
+Pressing the "Import Project" button on the top right corner of Intellij refreshes its dependencies. Next we set other properties of the project in the \lstinline{build.sbt} file, including the Scala version and Spark libraries among other things. \lstinline{build.sbt} looks like this:
 
 \begin{lstlisting}[language=Scala]
 name := "analyze_blockchain"
@@ -516,10 +516,10 @@ libraryDependencies ++= Seq(
 )
 \end{lstlisting}
 
-To make this work, we need to download the associated Spark libraries and import them into the project. We are ready to get started.
+To make the above \lstinline{build.sbt} file valid we need to download the associated Spark libraries and import them into the project. We are ready to get started.
 
 \subsection{Determining Address Growth Per Month}
-One of the many metrics used to roughly gauge Bitcoin adoption is the number of new addresses used per unit of time. At first glance, it does not seem intuitive to solve this with Spark because it involves finding the first use of each address. It is actually rather easy to solve this problem with a series of maps and reduces in Spark.
+One of the many metrics used to roughly gauge Bitcoin adoption is the number of new addresses used per unit of time. At first glance, it does not seem intuitive to attempt this using Spark because it involves finding the first use of each address. It is actually rather easy to solve this problem with a series of maps and reduces in Spark.
 
 First, we import all blocks and transactions:
 
@@ -538,7 +538,7 @@ object NewAddresses {
 }
 \end{lstlisting}
 
-Remember that data in each line is comma delimited. For each block, we only need its hash and solve time, so we can map each line to just those two elements. In addition, the solve time needs to be parsed from a string into \lstinline{DateTime} object that can be compared. So we can add the following lines:
+Remember that data in each line is comma delimited. For each block, we only need its hash and solve time, so we can map each line to just those two elements. In addition, the solve time needs to be parsed from a string into a comparable \lstinline{DateTime} object. We add the following lines:
 
 \begin{lstlisting}[language=Scala]
 val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
@@ -558,7 +558,7 @@ val outputAddresses = transactions.flatMap(arr => arr(6) \
     .filter(tx => tx._2 != "null")
 \end{lstlisting}
 
-Since addresses are delimited with colons in our reduced dataset, we split the string by ":" and map each output address to a separate tuple. We also remove addresses that are "null", which resulted from an inability to decode certain input/output scripts.
+Since addresses are delimited with colons in our reduced dataset, we split the string by ":" and map each output address to a separate record. We also remove addresses that are "null", which resulted from an inability to decode certain input/output scripts.
 
 At this point, all records in \lstinline{blocks} and \lstinline{outputAddresses} use block hash as their key. Therefore, we can join both RDDs to get the times the associated transactions were confirmed in their respective blocks. After this, we can reduce the resulting RDD by key, continuously leaving the earliest date as the value. Lastly, we convert the date's format to just a year and month.
 
@@ -586,13 +586,13 @@ The final RDD is stored in the specified \lstinline{outputFilePath}. Results are
 \subsection{Looking at Address Use \& Reuse}
 It is interesting to see the way addresses are used. For instance, we can produce a distribution of the frequency and number of times addresses are used for transactions. One would suspect the addresses used the most are deposit addresses for online gambling sites or donation addresses.
 
-Using the same method shown in the previous section, we import the blocks and transactions. From the transactions, we are able to extract both input and output addresses and combine the two RDDs as they share the same schema. Just like earlier, we join the resulting RDD with the blocks to retrieve solve times:
+Using the same method shown in the previous section, we import the blocks and transactions. From the transactions, we are able to extract both input and output addresses and union the two RDDs as they share the same schema. Just like before, we join the resulting RDD with the blocks to retrieve solve times:
 
 \begin{lstlisting}[language=Scala]
 val combined = blocks.join(addresses)
 \end{lstlisting}
 
-In two lines we can compute the use count for addresses and a distribution of use count versus the number of addresses with that use count:
+In two lines we can compute the use count for addresses and get a distribution of use count versus the number of addresses with that use count:
 
 \begin{lstlisting}[language=Scala]
 val addressUseCount = combined.map(entry => \
@@ -604,13 +604,13 @@ val addressUseTimes = addressUseCount.map(_.swap) \
 
 After, we can calculate the average number of times an address is used with the expression \lstinline{totalAddressCount / uniqueAddressCount}, where \lstinline{totalAddressCount} is the total number of inputs and outputs in all transactions and \lstinline{uniqueAddressCount} is \lstinline{addressUseCount.count()}.
 
-A similar strategy making use of the block solve times gives us the frequency of address use. Full code is shown \href{https://google.com}{here}.
+A similar strategy making use of the block solve times gives us the frequency of address use. Full code is shown \href{https://github.com/nishilshah17/idsi_bitcoin/blob/master/analyze_blockchain/src/main/scala/AddressReuse.scala}{here}.
 
 \subsection{Printing To A File on HDFS}
 
-To save an RDD to HDFS, the \lstinline{saveAsTextFile(/path)} comes in handy. However, Spark partitions the output file by default, which we want to avoid given the small size our job's output. To do this, we use the \lstinline{repartition(1)} function with the parameter 1 to shift all the data to a single node prior to saving it to a text file.
+To save an RDD to HDFS, the \lstinline{saveAsTextFile()} method comes in handy. Spark partitions the output files by default based on the number of workers. We want to avoid output partitioning due to the small size of our job's output. To do this, we use the \lstinline{repartition(1)} function to shift all data to a single node prior to saving it to a text file.
 
-In some cases, we also use the \lstinline{PrintWriter} class to print out some custom calculations. We've created this helper function which builds a \lstinline{PrintWriter} from an input path:
+In some cases, we also use the \lstinline{PrintWriter} class to print out custom calculations. We've created this helper function which builds a \lstinline{PrintWriter} from an input path:
 
 \begin{lstlisting}
 def printWriter(outputPath: String): PrintWriter = {
@@ -622,10 +622,10 @@ def printWriter(outputPath: String): PrintWriter = {
 }
 \end{lstlisting}
 
-The above code identifies the file system based on the Hadoop configuration, creates an output stream to it, and finally returns a \lstinline{PrintWriter}. This method is useful for printing any type of data to HDFS.
+The above code identifies the file system based on the Hadoop configuration, creates an output stream to it, and finally returns a \lstinline{PrintWriter}. This method is useful for printing any type of data to a file on HDFS.
 
 \subsection{Running The Job}
-Now we are ready to package the source code into a JAR to run on our cluster. To do this, we run the following commands in the base project directory:
+We are ready to package the source code into a JAR to run on our cluster. To do this, we run the following commands in the base project directory:
 
 \begin{lstlisting}[language=bash]
  $ sbt
@@ -635,7 +635,7 @@ Now we are ready to package the source code into a JAR to run on our cluster. To
  ...
 \end{lstlisting}
 
-After this, we see many merge conflicts between identical classes in different libraries. To alleviate this, we add merge strategies in the \lstinline{build.sbt} file. Merge strategies specify what to do in the situation of a merge conflict. Here is a snippet of our merge resolution strategies:
+We find that \lstinline{sbt-assembly} fails the first time. There are several merge conflicts between identical classes in different libraries. To alleviate this, we add merge strategies in the \lstinline{build.sbt} file. Merge strategies specify what to do in the situation of a merge conflict. Here is a snippet of our merge resolution strategies:
 
 \begin{lstlisting}[language=Scala]
 assemblyMergeStrategy in assembly := {
@@ -649,11 +649,11 @@ assemblyMergeStrategy in assembly := {
 }
 \end{lstlisting}
 
-The merge strategies above are applied depending on the file path. For the first three cases, we take the last file. If the conflicting files ends with ".html", we discard them because HTML files aren't significant to the usage of the libraries. Lastly, there is a default case for all other files. The full set of merge strategies can be seen \href{https://google.com}{here}.
+The merge strategies above are applied depending on the file path. For the first three cases, we take the last file. If the conflicting files ends with ".html", we discard them because HTML files aren't significant to the usage of the libraries. Lastly, there is a default case for all other files. The full set of merge strategies can be seen in in the \href{https://github.com/nishilshah17/idsi_bitcoin/blob/d2f1e0257ff684e99356de052eed1c6868ffe82f/analyze_blockchain/build.sbt#L14}{build.sbt} file.
 
-After including sufficient merge strategies, running the two commands \lstinline{sbt} and \lstinline{assembly} properly assembles the fat JAR, which can be found at path \lstinline|target/scala-{scala-version}/| \lstinline|analyze_blockchain-assembly-1.0.jar|. Then we send the JAR to our cluster using either an FTP client or \lstinline{scp} from the command-line.
+After including the appropriate merge strategies, running the two commands \lstinline{sbt} and \lstinline{assembly} properly assembles the fat JAR. The resulting JAR file can be found at path \lstinline|target/scala-{scala-version}/| \lstinline|analyze_blockchain-assembly-1.0.jar|. Then we send the JAR to our cluster using either an FTP client or \lstinline{scp} from the command-line.
 
-Finally, we use \lstinline{spark-submit} to run the Spark job. We include the JAR file, the main class and its input arguments. The main class runs the appropriate code for the specified task so that we don't need an individual JAR for separate tasks (which would require multiple copies of dependencies).
+Finally, we use the \lstinline{spark-submit} command to run the Spark job. We include the JAR file, the main class and its input arguments. The main class runs the appropriate code for the specified task so that we don't need an individual JAR for separate tasks (which would require multiple copies of dependencies).
 
 \begin{lstlisting}[language=bash]
  $ spark-submit --class AnalyzeBlockchain \
@@ -697,7 +697,7 @@ uSrhYLjvPUgwvDUJmksfREUGBTT,1571000000:1000000
 
 \subsection{Address Growth Per Month}
 
-The exact results from running this analysis can be seen \href{https://google.com}{here}. In the following graph, we have omitted results from April 2017 due to incomplete data from that month.
+The exact results from running this analysis can be seen \href{https://github.com/nishilshah17/idsi_bitcoin/blob/d2f1e0257ff684e99356de052eed1c6868ffe82f/data/output/new_addresses/new_addresses.txt}{here}. In the following graph, we have omitted results from April 2017 due to incomplete data from that month.
 
 \begin{figure}[!ht]
 \includegraphics[width=9cm, height=5cm]{figs/new_addresses.png}
@@ -713,5 +713,4 @@ There is an obvious rapid and increasing growth in the number of new addresses u
 In this technical report, we downloaded and performed an analysis on the full Bitcoin blockchain from the currency's inception until April 11, 2017. We discovered an upward trend in new addresses used per month, supporting an increase in Bitcoin adoption. We also looked into the reuse of addresses, which provides many insights. We found that XX percent of addresses are only used once and that addresses are reused an average of X.X times. This gives an estimate of how long people hold onto Bitcoin before spending it.
 
 We have also seen the procedures involved in processing a large real world dataset with big data technologies such as Hadoop and Spark. Overall, Bitcoin is the biggest and most popular virtual currency in the world today. Every day, hundreds of blocks are being added to the blockchain that we explored in this technical report. This technical report is just a glimpse into the amount of information stored in the blockchain and the vast potential for big data applications in this area.
-
 \end{document}
