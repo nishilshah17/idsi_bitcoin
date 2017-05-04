@@ -56,14 +56,14 @@ Using several big data technologies, we process over 100 gigabytes of Bitcoin tr
 
 \section{Introduction}
 \subsection{Bitcoin}
-Bitcoin is a peer-to-peer virtual currency built to eliminate the need for intermediaries like businesses and banks who process transactions and handle disputes. Bitcoin accomplishes this with a decentralized system that allows for non-reversible transactions verified by a chain of computational proof, commonly known as the Blockchain. Bitcoin is decentralized in that the entire ledger of transactions is stored on every node in the network. Each node collects new transactions into blocks of a limited size. Nodes simultaneously work on a difficult proof-of-work that when found allows the solving node to broadcast the finalized block to other nodes on the network. All other nodes then must verify the block's transactions to ensure its contents are valid before appending it to their local copy of the chain. Anyone can start a Bitcoin node by installing the \href{https://bitcoin.org/en/bitcoin-core/}{Bitcoin Core} software.
+Bitcoin is a peer-to-peer virtual currency built to eliminate the need for intermediaries like businesses and banks who process transactions and handle disputes. Bitcoin accomplishes this with a decentralized system that allows for non-reversible transactions verified by a chain of computational proof, commonly known as the Blockchain. Bitcoin is decentralized in the sense that there is no central authority. The entire ledger of transactions is stored on every node, which carries equal say, in the network. Each node collects incoming transactions into blocks of a limited size. Nodes simultaneously work on a difficult proof-of-work that when found allows the solving node to broadcast the finalized block to other nodes on the network. All other nodes then must verify the block's transactions to ensure its contents are valid before appending it to their local copy of the chain. Anyone can start a Bitcoin node by installing the \href{https://bitcoin.org/en/bitcoin-core/}{Bitcoin Core} software.
 
-There are no tangible "coins". Bitcoins are simply a series of digital messages sent from address to address signed with a private key of the sender. Coins can only be spent from an address if a user has its associated private key. Overall, the Bitcoin system is incredibly robust, allowing for quick and secure transactions without regulation of third-parties like financial institutions or governments. More information on Bitcoin can be found in the \href{https://bitcoin.org/bitcoin.pdf}{paper} by Bitcoin's creator, \href{https://en.wikipedia.org/wiki/Satoshi_Nakamoto}{Satoshi Nakamoto}.
+There are no tangible "coins". Bitcoins are simply a series of digital messages sent from address to address signed with a private key of the sender. Coins can only be spent from an address if a user has its associated private key. Overall, the Bitcoin system is incredibly robust, allowing for quick and secure transactions without regulation of third-party financial institutions or governments. More information on Bitcoin can be found in the \href{https://bitcoin.org/bitcoin.pdf}{paper} by Bitcoin's creator, \href{https://en.wikipedia.org/wiki/Satoshi_Nakamoto}{Satoshi Nakamoto}.
 
 \subsection{Purpose}
-At the time of writing, 1 Bitcoin is equivalent to over 1200 USD; all the Bitcoins in circulation have a market cap of almost 20 billion dollars. Clearly, the world sees value in Bitcoin as a medium of exchange, store of value, and/or unit of account. A market of such volume is certainly worthy of exploration. Uncovering trends and metrics on the usage of Bitcoins can be useful in predicting future market activity and possibly even help to identify limitations in its underlying system. Emerging big data technologies make it relatively simple to model, process, and analyze the immense amount of transactional data in the Bitcoin network.
+At the time of writing, 1 Bitcoin is equivalent to over 1200 USD; all the Bitcoins in circulation have a market cap of almost 20 billion dollars. Clearly, there is value in Bitcoin as a medium of exchange, store of value, and/or unit of account. A market of such volume is certainly worthy of exploration. Uncovering trends and metrics on the usage of Bitcoins can be useful in predicting future market activity and possibly even help to identify limitations in its underlying system. Technologies like Hadoop and Spark make it simple to model, process, and analyze the immense amount of transactional data in the Bitcoin network.
 
-Overall, the purpose of this technical report is to find patterns in Bitcoin transactions to better understand how people use Bitcoin and contribute to the growing community. Simultaneously, we aim to show the procedure involved in applying big data technologies to a real world dataset.
+Overall, the purpose of this technical report is to find patterns in Bitcoin transactions to better understand how people use Bitcoin. Simultaneously we aim to show the procedure involved in applying big data processing to a real world dataset on our Openstack cluster.
 
 \section{Prerequisites}
 \subsection{Assumptions}
@@ -87,9 +87,9 @@ First, we downloaded Bitcoin's entire transaction history (as of April 11, 2017)
 
 \section{Downloading The Blockchain}
 \subsection{Bitcoin Core}
-The Bitcoin Core software provides functionality to run a full node on any computer. This is the most secure way to download the blockchain, provided by \href{https://bitcoin.org}{https://bitcoin.org}. Once the node is fully synced with the network, one can also use Bitcoin Core's local wallet to receiving and spending coins.
+The Bitcoin Core software provides functionality to run a full node on any computer. This is the most secure way to download the blockchain, provided by \href{https://bitcoin.org}{https://bitcoin.org}. Once the node is fully synced with the network, one can also use Bitcoin Core's local wallet to receive and spending coins.
 
-Since the blockchain is very large, we will download everything to a 7 terabyte volume attached to our cluster's master node:
+Since the blockchain is very large, we will download the software and all data to a 7 terabyte volume attached to our cluster's master node:
 \begin{lstlisting}[language=bash]
  $ cd /mnt/volume
  $ sudo wget https://bitcoin.org/bin/bitcoin-core-0.14.0
@@ -113,6 +113,17 @@ The daemon takes a few moments to get started. Slowly, block files will begin to
 \subsection{Indexed Blockchains}
 There are several resources online which offer indexed versions of the blockchain with either the raw block files or a \lstinline{Bootstrap.dat} file. After downloading an indexed blockchain into the \lstinline{.../.bitcoin/} directory, the daemon still must verify them and then continue its work from the last file in the indexed state. The daemon is started as shown above.
 
+\subsection{Copying Data to HDFS}
+
+To distribute the storage of data across multiple nodes in our cluster, we copy the data to HDFS using the \lstinline{copyFromLocal} command.
+
+\begin{lstlisting}[language=bash]
+ $ hdfs dfs -mkdir /shared/blockchain
+ $ hdfs dfs -copyFromLocal \
+    /.bitcoin/blocks/* /shared/blockchain
+
+\end{lstlisting}
+
 \section{Parsing the Blockchain With Hadoop}
 \subsection{The Data}
 As mentioned before, the blockchain is stored in a series of binary files:
@@ -124,10 +135,10 @@ As mentioned before, the blockchain is stored in a series of binary files:
 
 Each \lstinline{blk*.dat} file describes the contents of several blocks, including header information and transactions. The block header contains important metadata like the block's hash, the previous block's hash, and the time it was solved. Each transaction has its own data including (but not limited to) its hash, input and output addresses, and Bitcoin value sent.
 
-This file format is not directly effective for performing large computations. It is difficult to group, sort, and search through transactions in this structure. Moreover, constantly parsing and extracting data from each file is expensive. The files also contain some excess information that we would rather overlook. We can solve this problem by using Hadoop MapReduce to transform the blockchain into a simplified text format.
+This file format is not directly effective for performing large computations. It is difficult to group, sort, and filter through transactions in this structure. Moreover, constantly parsing and extracting data from each file is expensive. The files also contain some excess information that we would rather overlook. We can solve this problem by using Hadoop MapReduce to transform the blockchain into a simplified text format.
 
 \subsection{Why MapReduce?}
-MapReduce is an adequate method for this task because the blockchain can easily be split into equally sized, independent chunks. The processing of one block does not rely on another and thus can be parallelized. We start by parsing each block's byte contents in the map phase to \lstinline{Block} and \lstinline{Transaction} objects. The mapper outputs all blocks and transactions as values by using a parent \listinline{GenericWritable} class. We use a date-based key to split the work among several reducers. Each reducer will receive a list of transactions and blocks that occurred in the same month and output them to separate files. The MapReduce output directory looks something like this:
+MapReduce is an adequate method for this task because the blockchain can easily be split into equally sized, independent chunks. The processing of one block does not rely on another and thus can be parallelized. We do this by writing a custom input format which iterates through each \lstinline{blk*.dat} file and sends the bytes corresponding to each block to the map phase. Then, each block's bytes are parsed to \lstinline{Block} and \lstinline{Transaction} objects in the mapper. The mapper writes all blocks and transactions as values by using a parent \lstinline{GenericWritable} class. We use a date-based key to split the work among several reducers. Therefore, each reducer will receive a list of transactions and blocks that occurred in the same month and output them to separate files. The MapReduce output directory looks something like this:
 
 \begin{lstlisting}[language=bash]
  $ hdfs dfs -ls /shared/bitcoin/output
@@ -137,8 +148,10 @@ MapReduce is an adequate method for this task because the blockchain can easily 
     transactions-2013-4  transactions-2013-5...
 \end{lstlisting}
 
+We go into detail on this part of the project in the next few sections. An explanation of the results is located in section 7.A.
+
 \subsection{Writing a Custom Input Format}
-By default, Hadoop partitions input files into appropriately sized splits before the map phase. This is insufficient given the structure of our data. Obviously, Hadoop does not know how to identify the beginning and end of each block within the \lstinline{blk*.dat} files, leading to the possibility of incomplete records. Therefore, we can prevent input splitting and read entire input files at once prior to the map phase. We do this by implementing two classes, \lstinline{FileInputFormat} and \lstinline{RecordReader}.
+By default, Hadoop partitions input files into appropriately sized splits before the map phase. This is insufficient given the structure of our data files. Obviously, Hadoop does not know how to identify the beginning and end of each block within the \lstinline{blk*.dat} files, leading to the possibility of incomplete records. Therefore, we can prevent input splitting and read entire input files at once prior to the map phase. We do this by implementing two classes, \lstinline{FileInputFormat} and \lstinline{RecordReader}.
 
 \subsubsection{FileInputFormat}
 The \lstinline{FileInputFormat} class is primarily responsible for creating input splits from files. It also creates an instance of \lstinline{RecordReader} that builds key-value pairs from each input split.
@@ -219,15 +232,15 @@ public boolean nextKeyValue() throws IOException {
 }
 \end{lstlisting}
 
-The \lstinline{BlockUtils.nextBlockBytes()} function retrieves the bytes corresponding to the next block in the file. This function uses a bit manipulation technique adopted from the \href{https://bitcoinj.github.io/}{bitcoinj} library. The specifics of this function can be found \href{https://google.com}{here}. We increment \lstinline{fileIndex} by \lstinline{(4 + blockBytes.length)} because each block is preceded with 4 bytes that specify the block's size in bytes.
+The \lstinline{BlockUtils.nextBlockBytes()} function retrieves the bytes corresponding to the next block in the file. This function uses a bit manipulation technique adopted from the \href{https://bitcoinj.github.io/}{bitcoinj} library. The specifics of this function can be found \href{https://github.com/nishilshah17/idsi_bitcoin/blob/97859e4f8284f2fc5c1db488d61d075af9ea256d/reduce_blockchain/blockparser/BlockUtils.java#L30}{here}. We increment \lstinline{fileIndex} by \lstinline{(4 + blockBytes.length)} because each block is preceded with a 4 byte integer that specifies the block's size.
 
-To completely extend \lstinline{RecordReader}, we also override the functions \lstinline{getCurrentKey()}, \lstinline{getCurrentValue()}, \lstinline{getProgress()}, and \lstinline{close()}. \lstinline{getProgress()} returns a float representing how much of the input the \lstinline{RecordReader} has processed (0.0 - 1.0). The other two get functions are used internally by Hadoop when invocating the mapper. Since we already close the input stream after reading all bytes, we leave \lstinline{close()} empty.
+To completely extend \lstinline{RecordReader}, we also override the functions \lstinline{getCurrentKey()}, \lstinline{getCurrentValue()}, \lstinline{getProgress()}, and \lstinline{close()}. \lstinline{getProgress()} returns a float representing how much of the input the \lstinline{RecordReader} has processed (0.0 - 1.0). The other two get functions are used internally by Hadoop when it invokes the mapper. Since we already close the input stream after reading all bytes, we leave \lstinline{close()} empty.
 
 \subsection{Custom Writable Data Types}
 
 MapReduce requires the usage of "writable" data types as input and output. These data types internally handle serialization and deserialization, enabling persistent data storage and retrieval.
 
-Recall we use an external library \lstinline{bitcoinj} to parse each block and its associated transactions. This library provides \lstinline{Block} and \lstinline{Transaction} classes. To send these objects from the mapper to the reducer as values, we must use them to create our own writable data types by implementing the \lstinline{Writable} interface.
+Recall we use an external library bitcoinj to parse each block and its associated transactions. This library provides \lstinline{Block} and \lstinline{Transaction} classes. To send these objects from the mapper to the reducer as values, we must use them to create our own writable data types by implementing the \lstinline{Writable} interface.
 
 \subsubsection{BlockWritable}
 In the BlockWritable class, we store the following information:
@@ -242,7 +255,7 @@ public class BlockWritable implements Writable {
 }
 \end{lstlisting}
 
-To successfully implement \lstinline{Writable}, our class just needs to override the \lstinline{write()} and \lstinline{readFields()} functions. We also write a  constructor which takes an instance of \lstinline{Block} and grabs relevant data from it. \lstinline{write()} and \lstinline{readFields()} are necessary to serialize and deserialize writable objects as they are sent across nodes in a distributed system.
+To successfully implement \lstinline{Writable}, our class just needs to override the \lstinline{write()} and \lstinline{readFields()} functions. These two functions are necessary for Hadoop to serialize and deserialize the object as it is sent across nodes in the distributed system. We also write a  constructor which takes an instance of \lstinline{Block} and grabs relevant data from it.
 
 \begin{lstlisting}
 @Override
@@ -284,7 +297,7 @@ public class TransactionWritable implements Writable {
 }
 \end{lstlisting}
 
-The number of input and output addresses vary per transaction. We deal with this by joining each address in a string with the ":" symbol. \lstinline{outputValues} holds the amount of Bitcoin (in satoshis) sent to each output address and follows the same protocol. Sometimes, it is impossible to decode the original input or output address, in which case we use the string "null" as a placeholder. Example values for transaction \lstinline{ac8d7dde0667e1e8691bbed0b75742275acf617ff55} \lstinline{31a86ffd2129747551b74} is:
+The number of input and output addresses vary per transaction. We deal with this by joining each address in a string with the ":" symbol. \lstinline{outputValues} holds the amount of Bitcoin (in the lowest denomination, satoshis) sent to each output address and follows the same protocol. Sometimes, it is impossible to decode the original input or output address, in which case we use the string "null" as a placeholder. Example values for transaction \lstinline{ac8d7dde0667e1e8691bbed0b75742275acf617ff55} \lstinline{31a86ffd2129747551b74} is:
 
 \begin{lstlisting}
 inputs = "null"
@@ -293,7 +306,7 @@ outputs = "1B9R81wLa3b9aaCYaLtKGUcb59EVPcNKju:1PJnjo4n2Rt
 outputValues = "4050000:5000000000"
 \end{lstlisting}
 
-Java's \lstinline{DataOutputStream} enforces a 64KB limit on strings it will serialize. Some transactions had a large amount of inputs/outputs resulting in strings well over the limit. We got around this restriction by writing and reading the string's bytes directly as follows:
+Java's \lstinline{DataOutputStream} enforces a 64KB limit on strings it will serialize. Some transactions had a large amount of inputs/outputs resulting in strings well over the limit. We got around this restriction by writing and reading a 4 byte integer representing the size of the string followed by the string's bytes:
 
 \begin{lstlisting}
 private void writeLongString(String string, DataOutput out) throws IOException {
@@ -310,7 +323,7 @@ private String readLongString(DataInput in) throws IOException {
 }
 \end{lstlisting}
 
-The rest of the process is the same as \lstinline{BlockWritable}.
+The rest of the class is similar to \lstinline{BlockWritable}.
 
 \subsubsection{MessageWritable (implementing GenericWritable)}
 
@@ -334,10 +347,10 @@ public class MessageWritable extends GenericWritable {
 }
 \end{lstlisting}
 
-We show how to use this class in section 5.E.
+Usage of this class is shown in section 5.E.
 
 \subsection{MapReduce}
-We have shown how to construct all the prerequisite components needed to write the main MapReduce driver. The driver consists of implementations of \lstinline{Mapper} and \lstinline{Reducer} and the main function where the job's configurations are set.
+We have shown the construction of all prerequisite components needed to write the main MapReduce driver. The driver consists of implementations of \lstinline{Mapper} and \lstinline{Reducer} and the main function where the job's configurations are set.
 
 \subsubsection{Mapper}
 If you recall, our mapper receives a \lstinline{NullWritable} key and \lstinline{BytesWritable} value, the contents of a single block. The structure of our mapper class is:
@@ -353,7 +366,7 @@ public static class BlockMapper extends Mapper
     }
 }
 \end{lstlisting}
-The map function parses the block into a bitcoinj \lstinline{Block} object using \lstinline{BlockUtils.parseBlock()}, a wrapper around a bitcoinj library call. Again, the source code of the utilities class can be found \href{https://google.com}{here}. From a \lstinline{Block}, we can retrieve all of its included transactions. The full map function follows:
+The map function parses the block into a bitcoinj \lstinline{Block} object using \lstinline{BlockUtils.parseBlock()}, a wrapper around a bitcoinj library call. The source code of the utilities class can be found \href{https://github.com/nishilshah17/idsi_bitcoin/blob/97859e4f8284f2fc5c1db488d61d075af9ea256d/reduce_blockchain/blockparser/BlockUtils.java}{here}. From a \lstinline{Block}, we can retrieve all of its included transactions. The full map function follows:
 
 \begin{lstlisting}
 //parse block
@@ -375,18 +388,19 @@ for(Transaction tx : nextBlock.getTransactions()) {
 }
 \end{lstlisting}
 
-Next, we generate writable versions of the block and all its transactions. Since we cannot pass two different value types from the mapper to the reducer, we use them to instantiate \lstinline{MessageWritable} objects to output with a key. The key is generated from the month and year in which the block was solved. Next, we implement the Reducer class.
+Above, we generate writable versions of the block and all its transactions. Since we cannot pass two different value types from the mapper to the reducer, we use them to instantiate \lstinline{MessageWritable} objects to output with a key. The key is generated from the year and month in which the block was solved (e.g. "2016-12"). Next, we implement the Reducer class.
 
 \subsubsection{Reducer}
-Each reducer will aggregate the blocks and transactions that confirmed in the same month. This makes it easy to do date-based computations such as calculating the number of transactions per month or Bitcoin value transacted per month. Mainly, the Reducer will output the data to their respective month-labeled files with the use of \lstinline{MultipleOutputs}. Our \lstinline{Reducer} implementation looks like this:
+Each reducer will aggregate the blocks and transactions that appeared in the same month. This sets us up to do date-based computations such as calculating the number of transactions per month or transaction volume per month. The Reducer's other purpose is outputting the data to  month-labeled files with the use of Hadoop's \lstinline{MultipleOutputs} class. Our \lstinline{Reducer} implementation looks like this:
 
 \begin{lstlisting}
 public static class BlockReducer extends Reducer
   <Text, MessageWritable, Text, NullWritable> {
     //output
-    private Text key = new TextWritable();
-    private NullWritable value = NullWritable.get();
+    private Text outKey;
+    private NullWritable outValue = NullWritable.get();
     private MultipleOutputs outputs;
+    private String fileName;
 
     public void setup(Context context) {
         outputs = new MultipleOutputs(context);
@@ -402,17 +416,19 @@ public static class BlockReducer extends Reducer
 }
 \end{lstlisting}
 
-With \lstinline{MultipleOutputs}, we can specify any file name to write to. We will write to different files depending on whether the value is a block or a transaction in the reduce function:
+With \lstinline{MultipleOutputs}, we can specify any file name to write to. We will write to different files depending on whether the value is a block or a transaction in the reducer:
 
 \begin{lstlisting}
 for(MessageWritable mWritable: values) {
     Writable message = mWritable.get();
     if(message instanceof BlockWritable) {
-        key = ((BlockWritable)message).toText();
-        outputs.write(key, value, "blocks");
+        outKey = ((BlockWritable)message).toText();
+        fileName = "blocks" + key;
+        outputs.write(outKey, outValue, fileName);
     } else if(message instanceof TransactionWritable) {
-        key = ((TransactionWritable)message).toText();
-        outputs.write(key, value, "transactions");
+        outKey = ((TransactionWritable)message).toText();
+        fileName = "transactions" + key;
+        outputs.write(outKey, outValue, fileName);
     }
 }
 \end{lstlisting}
@@ -420,14 +436,14 @@ for(MessageWritable mWritable: values) {
 And that's it!
 
 \subsubsection{Using External Libraries With Hadoop}
-To compile and run MapReduce using an external jar, we add the jar to the classpath. Running \lstinline{echo $HADOOP_CLASSPATH} on the command-line returns a list of directories that belong to Hadoop's classpath on the system. Moving the jar (\emph{bitcoinj.jar} in our case) to any of those directories does the trick. In addition, we must add the following configuration to the job in the main driver to ensure the jar is located during runtime.
+To compile and run MapReduce using an external JAR file, we add the JAR to the classpath. Running \lstinline{echo $HADOOP_CLASSPATH} on the command-line returns a list of directories that belong to Hadoop's classpath on the system. Moving the JAR (\emph{bitcoinj.jar}) to any of those directories does the trick. In addition, we add the following configuration to the job in the main driver to ensure the JAR file is located during runtime.
 
 \begin{lstlisting}
 job.addFileToClassPath("path/to/bitcoinj.jar");
 \end{lstlisting}
 
 \subsubsection{Putting It All Together}
-We then configure the MapReduce job in the main driver so it knows which classes and types to use. First, we set a configuration:
+We then configure the MapReduce job in the main driver to tell Hadoop which classes, types, and settings to use. First, we set a configuration:
 
 \begin{lstlisting}
 public static void main(String[] args) throws Exception {
@@ -436,13 +452,13 @@ public static void main(String[] args) throws Exception {
 }
 \end{lstlisting}
 
-Hadoop saves intermediary results between the map and reduce phases. By compressing the intermediary output, we save disk space. The rest of the main driver configures the job itself:
+Above, we enable compression of the intermediary output to save disk space between the map and reduce phases. The rest of the main driver configures the job itself:
 
 \begin{lstlisting}
 public static void main(String[] args) throws Exception {
     ...
     Job job = Job.getInstance(conf, "reduce_blockchain");
-    //include jars in classpath
+    //include JARs in classpath
     job.setJar("rbc.jar");
     job.addFileToClassPath(new Path("/user/nishil/bitcoin/bitcoinj.jar"));
     job.setMapperClass(BlockMapper.class);
@@ -463,7 +479,7 @@ We are required to set the mapper and reducer class and their respective output 
 
 The \lstinline{BlockFileInputFormat}, \lstinline{BlockFileRecordReader}, and \lstinline{BlockUtils} classes are packaged using \lstinline{package blockparser}. We also package the writable datatypes, \lstinline{BlockWritable}, \lstinline{TransactionWritable}, and \lstinline{MessageWritable} into \lstinline{package datatypes}. The main MapReduce job in \lstinline{ReduceBlockchain.java} is in the main directory.
 
-The following commands are used to compile the source code into a jar file and run the job:
+The following sequence of commands compile the source code into a JAR file and run the job:
 
 \begin{lstlisting}[language=bash]
  $ hadoop com.sun.tools.javac.Main \
@@ -635,9 +651,9 @@ assemblyMergeStrategy in assembly := {
 
 The merge strategies above are applied depending on the file path. For the first three cases, we take the last file. If the conflicting files ends with ".html", we discard them because HTML files aren't significant to the usage of the libraries. Lastly, there is a default case for all other files. The full set of merge strategies can be seen \href{https://google.com}{here}.
 
-After including sufficient merge strategies, running the two commands \lstinline{sbt} and \lstinline{assembly} properly assembles the FAT jar, which can be found at path \lstinline|target/scala-{scala-version}/| \lstinline|analyze_blockchain-assembly-1.0.jar|. Then we send the JAR to our cluster using either an FTP client or \lstinline{scp} from the command-line.
+After including sufficient merge strategies, running the two commands \lstinline{sbt} and \lstinline{assembly} properly assembles the fat JAR, which can be found at path \lstinline|target/scala-{scala-version}/| \lstinline|analyze_blockchain-assembly-1.0.jar|. Then we send the JAR to our cluster using either an FTP client or \lstinline{scp} from the command-line.
 
-Finally, we use \lstinline{spark-submit} to run the Spark job. We include the JAR file, the main class and its input arguments. The main class runs the appropriate code for the specified task so that we don't need an individual jar for separate tasks (which would require multiple copies of dependencies).
+Finally, we use \lstinline{spark-submit} to run the Spark job. We include the JAR file, the main class and its input arguments. The main class runs the appropriate code for the specified task so that we don't need an individual JAR for separate tasks (which would require multiple copies of dependencies).
 
 \begin{lstlisting}[language=bash]
  $ spark-submit --class AnalyzeBlockchain \

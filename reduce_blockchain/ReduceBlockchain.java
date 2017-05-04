@@ -64,7 +64,8 @@ public class ReduceBlockchain {
         private String blockTag = "blocks";
         private String transactionTag = "transactions";
 
-        private NullWritable value = NullWritable.get();
+        private Text outKey;
+        private NullWritable outValue = NullWritable.get();
         private MultipleOutputs multipleOutputs;
 
         public void setup(Context context) {
@@ -75,10 +76,12 @@ public class ReduceBlockchain {
             for(MessageWritable messageWritable : values) {
                 Writable message = messageWritable.get();
                 if(message instanceof BlockWritable) {
-                    multipleOutputs.write(((BlockWritable)message).toText(), value, blockTag + key);
+                    outKey = ((BlockWritable)message).toText();
+                    multipleOutputs.write(outKey, outValue, blockTag + key);
                 }
                 if(message instanceof TransactionWritable) {
-                    multipleOutputs.write(((TransactionWritable)message).toText(), value, transactionTag + key);
+                    outKey = ((TransactionWritable)message).toText();
+                    multipleOutputs.write(outKey, outValue, transactionTag + key);
                 }
             }
         }
