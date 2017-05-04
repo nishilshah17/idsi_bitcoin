@@ -76,7 +76,7 @@ public class BlockUtils {
             Date date = dateFormat.parse(time);
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(date);
-            key += "-" + calendar.get(Calendar.YEAR);
+            key += calendar.get(Calendar.YEAR);
             key += "-" + calendar.get(Calendar.MONTH);
         } catch (ParseException pe) {
             key = "parse-exception";

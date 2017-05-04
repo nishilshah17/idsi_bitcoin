@@ -51,8 +51,9 @@ public class ReduceBlockchain {
 
             //write transactions
             String blockHash = blockWritable.getHash();
+            String time = blockWritable.getTime();
             for(Transaction transaction : block.getTransactions()) {
-                TransactionWritable transactionWritable = new TransactionWritable(transaction, blockHash);
+                TransactionWritable transactionWritable = new TransactionWritable(transaction, blockHash, time);
                 outValue = new MessageWritable(transactionWritable);
                 context.write(outKey, outValue);
             }
@@ -63,27 +64,55 @@ public class ReduceBlockchain {
 
         private String blockTag = "blocks";
         private String transactionTag = "transactions";
+        private String blockCountTag = "block-count";
+        private String txCountTag = "transaction-count";
+        private String volumeTag = "volume";
 
         private Text outKey;
         private NullWritable outValue = NullWritable.get();
         private MultipleOutputs multipleOutputs;
 
+        private long blockCount;
+        private long txCount;
+        private double volume;
+
         public void setup(Context context) {
             multipleOutputs = new MultipleOutputs(context);
+            blockCount = 0;
+            txCount = 0;
+            volume = 0;
+        }
+
+        private double toBTC(long satoshis) {
+            return ((double)satoshis) / 100000000;
         }
 
         public void reduce(Text key, Iterable<MessageWritable> values, Context context) throws IOException, InterruptedException {
             for(MessageWritable messageWritable : values) {
                 Writable message = messageWritable.get();
+
                 if(message instanceof BlockWritable) {
                     outKey = ((BlockWritable)message).toText();
-                    multipleOutputs.write(outKey, outValue, blockTag + key);
+                    multipleOutputs.write(outKey, outValue, blockTag + "-" + key);
+
+                    blockCount++;
                 }
                 if(message instanceof TransactionWritable) {
                     outKey = ((TransactionWritable)message).toText();
-                    multipleOutputs.write(outKey, outValue, transactionTag + key);
+                    multipleOutputs.write(outKey, outValue, transactionTag + "-" + key);
+                    
+                    long transactionValue = ((TransactionWritable)message).getValue();
+                    volume += toBTC(transactionValue);
+                    txCount++;
                 }
             }
+
+            outKey = new Text(key + "," + blockCount);
+            multipleOutputs.write(outKey, outValue, blockCountTag);
+            outKey = new Text(key + "," + txCount);
+            multipleOutputs.write(outKey, outValue, txCountTag);
+            outKey = new Text(key + "," + volume);
+            multipleOutputs.write(outKey, outValue, volumeTag);
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException {

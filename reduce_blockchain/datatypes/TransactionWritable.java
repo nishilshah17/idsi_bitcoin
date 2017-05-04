@@ -25,8 +25,9 @@ import blockparser.BlockUtils;
 
 public class TransactionWritable implements WritableComparable<TransactionWritable> {
 
-    private String blockHash;
     private String hash;
+    private String blockHash;
+    private String time;
     private long value;
     private int size;
     private boolean isCoinBase;
@@ -37,8 +38,9 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     private final NetworkParameters NETWORK_PARAMETERS = BlockUtils.getNetworkParameters();
 
     public TransactionWritable() {
-        this.blockHash = new String();
         this.hash = new String();
+        this.blockHash = new String();
+        this.time = new String();
         this.value = 0;
         this.isCoinBase = false;
         this.inputs = new String();
@@ -46,9 +48,10 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         this.outputValues = new String();
     }
 
-    public TransactionWritable(Transaction tx, String blockHash) {
-        this.blockHash = blockHash;
+    public TransactionWritable(Transaction tx, String blockHash, String time) {
         this.hash = tx.getHashAsString();
+        this.blockHash = blockHash;
+        this.time = time;
         this.value = tx.getOutputSum().getValue();
         this.size = tx.getMessageSize();
         this.isCoinBase = tx.isCoinBase();
@@ -106,10 +109,15 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
         return new String(data, "UTF-8");
     } 
 
+    public long getValue() {
+        return value;
+    }
+
     @Override
      public void write(DataOutput out) throws IOException {
-        out.writeUTF(blockHash);
         out.writeUTF(hash);
+        out.writeUTF(blockHash);
+        out.writeUTF(time);
         out.writeLong(value);
         out.writeInt(size);
         out.writeBoolean(isCoinBase);
@@ -120,8 +128,9 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        blockHash = in.readUTF();
         hash = in.readUTF();
+        blockHash = in.readUTF();
+        time = in.readUTF();
         value = in.readLong();
         size = in.readInt();
         isCoinBase = in.readBoolean();
@@ -154,8 +163,9 @@ public class TransactionWritable implements WritableComparable<TransactionWritab
     }
 
     public Text toText() {
-        String str = blockHash;
-        str += "," + hash;
+        String str = hash;
+        str += "," + blockHash;
+        str += "," + time;
         str += "," + Long.toString(value);
         str += "," + size;
         str += "," + Boolean.toString(isCoinBase);
