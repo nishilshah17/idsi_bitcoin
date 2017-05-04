@@ -1,19 +1,30 @@
 /**
   * Created by NishilShah on 3/29/17.
   */
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
+import java.io.PrintWriter
 
 object AnalyzeBlockchain {
   private def setSparkContext(): SparkContext = {
     val conf = new SparkConf().setAppName("AnalyzeBlockchain").setMaster("local")
     conf.set("spark.local.dir", "/mnt/volume/tmp")
-    new SparkContext(conf)
+    return new SparkContext(conf)
   }
 
   private def printUsageError() = {
     println("Arguments: <job> <input-path> <output-path>")
     println("Jobs: NewAddresses, AddressReuse")
+  }
+
+  def printWriter(outputPath: String): PrintWriter = {
+    val path = new Path(outputPath)
+    val conf = new Configuration()
+    val fileSystem = FileSystem.get(conf)
+    val output = fileSystem.create(path)
+    return new PrintWriter(output)
   }
 
   def inputAddressIndex(): Int = {
@@ -22,11 +33,6 @@ object AnalyzeBlockchain {
 
   def outputAddressIndex(): Int = {
     6
-  }
-
-  def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit): Unit = {
-    val p = new java.io.PrintWriter(f)
-    try { op(p) } finally { p.close() }
   }
 
   def main(args: Array[String]): Unit = {

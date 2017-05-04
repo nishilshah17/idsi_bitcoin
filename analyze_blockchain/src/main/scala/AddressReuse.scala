@@ -3,11 +3,10 @@
   */
 import org.apache.spark.SparkContext
 import java.text.SimpleDateFormat
-import java.io._
 
 object AddressReuse {
 
-  def averageReuse(ts: Iterable[Long]): Double = {
+  def totalReuse(ts: Iterable[Long]): Double = {
     val reuseCount = ts.size - 1
     if(reuseCount < 1) {
       return 0
@@ -18,7 +17,7 @@ object AddressReuse {
       val diff = dates(i+1) - dates(i)
       totalTime += diff
     }
-    return totalTime / reuseCount
+    return totalTime
   }
 
   def run(inputPath: String, outputPath: String, sc: SparkContext) = {
@@ -32,7 +31,7 @@ object AddressReuse {
     val transactionsPath = "hdfs://" + inputPath + "/transactions*"
     //output path
     val outputFilePath = "hdfs://" + outputPath + "/address_reuse"
-    val statsFilePath = outputFilePath + "/stats.txt"
+    val statsFilePath = outputPath + "/address_reuse/address_reuse_statistics.txt"
 
     //import data
     val blocksRDD = sc.textFile(blocksPath)
@@ -48,36 +47,41 @@ object AddressReuse {
     val addresses = inputAddresses.union(outputAddresses)
     val combined = blocks.join(addresses)
 
-    //key: address, value: num times used
-    val addressUse = combined.map(entry => (entry._2._2, 1)).reduceByKey(_ + _)
-    //key: count, value: num addresses used count times
-    val addressUseTimes = addressUse.map(_.swap).map(entry => (entry._1, 1)).reduceByKey(_ + _)
-    val totalAddressUse: Double = addressUseTimes.map(entry => (0, entry._1 * entry._2)).reduceByKey(_ + _).first()._2
-    //only counting addresses used more than once
-    val singleUseAddressCount = addressUseTimes.filter(entry => entry._1 == 1).first()._2
-    val addressReuseTimes = addressUseTimes.filter(entry => entry._1 != 1)
-    val totalAddressReuse: Double = addressReuseTimes.map(entry => (0, entry._1 * entry._2)).reduceByKey(_ + _).first()._2
+    //number of times each address used
+    val addressUseCount = combined.map(entry => (entry._2._2, 1)).reduceByKey(_ + _)
+    //key: reuse count, value: num addresses used count times
+    val addressUseTimes = addressUseCount.map(_.swap).map(entry => (entry._1, 1)).reduceByKey(_ + _)
 
+    //total time between address reuse
     val datesAddressUsed = combined.map(entry => (entry._2._2, entry._2._1)).groupByKey()
-    val totalAvgUseTime: Double = datesAddressUsed.map(entry => (0, averageReuse(entry._2))).reduceByKey(_ + _).first()._2
-    val totalAvgReuseTime: Double = datesAddressUsed.filter(entry => entry._2.size > 1)
-      .map(entry => (0, averageReuse(entry._2))).reduceByKey(_ + _).first()._2
+      .filter(entry => entry._2.size > 1)
+    val totalTimeBetweenReuse: Double = datesAddressUsed.map(entry => (0, totalReuse(entry._2)))
+      .reduceByKey(_ + _).first()._2
 
     //calculations
-    val uniqueAddressCount = addressUse.count()
-    val averageAddressUse = totalAddressUse / uniqueAddressCount
-    val averageAddressReuse = totalAddressReuse / (uniqueAddressCount - singleUseAddressCount)
-    val averageUseTime = totalAvgUseTime / uniqueAddressCount / 1000
-    val averageReuseTime = totalAvgReuseTime / (uniqueAddressCount - singleUseAddressCount) / 1000
+    val totalAddressCount: Double = combined.count()
+    val uniqueAddressCount = addressUseCount.count()
+    val singleUseAddressCount = addressUseCount.filter(entry => entry._2 == 1).count()
+    val multiUseAddressCount = uniqueAddressCount - singleUseAddressCount
+    val reuseCount = totalAddressCount - uniqueAddressCount
+    val avgTimesAddressUsed = totalAddressCount / uniqueAddressCount
+    val avgTimesAddressUsedNoSingles = (totalAddressCount - singleUseAddressCount) / multiUseAddressCount
+    val avgTimeBetweenAddressReuse = totalTimeBetweenReuse / reuseCount / 1000
+
+    //build output
     var stats = "Unique Addresses: " + uniqueAddressCount + "\n"
     stats += "Single Use Addresses: " + singleUseAddressCount + "\n"
-    stats += "Avg Times Address Used: " + averageAddressUse + "\n"
-    stats += "Avg Times Address Used (omitting single use addresses): " + averageAddressReuse + "\n"
-    stats += "Avg Time Between Address Use: " + averageUseTime + "\n"
-    stats += "Avg Time Between Address Use (omitting single use addresses): " + averageReuseTime
+    stats += "Avg Times Address Used: " + avgTimesAddressUsed + "\n"
+    stats += "Avg Times Address Used (omitting single use addresses): " + avgTimesAddressUsedNoSingles + "\n"
+    stats += "Avg Time Between Address Reuse: " + avgTimeBetweenAddressReuse + " s\n"
 
     //save output
     addressUseTimes.repartition(1).saveAsTextFile(outputFilePath)
-    AnalyzeBlockchain.printToFile(new File(statsFilePath)) { printer => printer.println(stats)}
+    val writer = AnalyzeBlockchain.printWriter(statsFilePath)
+    try {
+      writer.write(stats)
+    } finally {
+      writer.close()
+    }
   }
 }
