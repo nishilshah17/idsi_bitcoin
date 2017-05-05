@@ -527,68 +527,66 @@ libraryDependencies ++= Seq(
 )
 \end{lstlisting}
 
-To make the above \lstinline{build.sbt} file valid we need to download the associated Spark libraries and import them into the project. We are ready to get started.
+To make the above \lstinline{build.sbt} file valid we need to download the associated Spark libraries and import them into the project. Following this step we are ready to start working with Spark.
 
-\subsection{Determining Address Growth Per Month}
-One of the many metrics used to roughly gauge Bitcoin adoption is the number of new addresses used per unit of time. At first glance, it does not seem intuitive to attempt this using Spark because it involves finding the first use of each address. It is actually rather easy to solve this problem with a series of maps and reduces in Spark.
+\subsection{Determining Address Growth}
+One of the many metrics used to roughly gauge Bitcoin adoption is the number of new addresses used per unit of time. At first glance, it does not seem intuitive to attempt this using Spark because it involves finding the first use date of each address. It is actually rather easy to solve this problem with a series of maps and reduces in Spark. We will compute the number of new addresses used per month.
 
-First, we import all blocks and transactions:
+First, we create an RDD of all transactions:
 
 \begin{lstlisting}[language=Scala]
 import org.apache.spark.SparkContext
 
 object NewAddresses {
     def run(inputPath: String, outputPath: String, sc: SparkContext) {
-        //set full input paths
-        val blocksPath = "hdfs://" + inputPath + "/blocks*"
-        val transactionsPath = "hdfs://" + outputPath + "/transactions*"
+        //build input path
+        val txPath = "hdfs://"+outputPath+"/transactions*"
         //import data
-        val blocksRDD = sc.textFile(blockPath)
-        val transactionsRDD = sc.textFile(transactionsPath)
+        val transactionsRDD = sc.textFile(txPath)
     }
 }
 \end{lstlisting}
 
-Remember that data in each line is comma delimited. For each block, we only need its hash and solve time, so we can map each line to just those two elements. In addition, the solve time needs to be parsed from a string into a comparable \lstinline{DateTime} object. We add the following lines:
+Since data for each transaction is comma delimited, we split each line by its commas. Specifically for this computation, only each transaction's output addresses and time are required. Output addresses are more useful to us than input addresses here because users can create and add unlimited input addresses to a transaction. An increase in new output addresses can imply an increase in transactions to new or distinct "users".
+
+To isolate output addresses from a transaction, we can use a \lstinline{flatMap} on the array and split the output address string by its colon delimiter. Furthermore, we map each resulting output address to the time of the transaction. Using a date format, we parse a formatted date string into a comparable \lstinline{DateTime} object. All this looks like:
 
 \begin{lstlisting}[language=Scala]
 val dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
 
 //split data by commas
-val blocks = blocksRDD.map(line => line.split(",")) \
-    .map(arr => (arr(0), dateFormat.parse(arr(3))))
-val transactions = transactionsRDD \
-    .map(line => line.split(","))
+val transactions = transactionsRDD.map(line => \
+    line.split(","))
+val outputAddresses = transactions.flatMap(arr => \
+    arr(outputAddressIndex).split(":") \
+    .map(addr => (addr, dateFormat.parse(arr(2)))))
+val validOutputAddresses = outputAddresses.filter(tx => \ tx._1 != "null")
 \end{lstlisting}
 
-Specifically, we are interested in output addresses here. Input addresses do not necessarily provide any insight, because users can create and add unlimited input addresses to a transaction. An increase in new output addresses per month can imply an increase in transactions to new or distinct users. To isolate output addresses:
+The last line above filters out "null" output addresses, which resulted from an inability to decode certain output scripts. In some special cases, the Bitcoin protocol encrypts addresses in a way that is impossible to reverse.
+
+At this stage, all records in \lstinline{validOutputAddresses} are key-value pairs of an address with a \lstinline{DateTime} it was used at. They keys in this RDD are not unique: output addresses could certainly be used more than once. We are interested in finding the first use date of each address and disregarding all other use times.
+
+This is accomplished by reducing the RDD by key. The reduction continuously compares and returns the earlier date as the value. After this, we convert the date's format to just a year and month.
 
 \begin{lstlisting}[language=Scala]
-val outputAddresses = transactions.flatMap(arr => arr(6) \
-    .split(":").map(addr => (arr(0), addr))) \
-    .filter(tx => tx._2 != "null")
-\end{lstlisting}
+val newFormat = new SimpleDateFormat("MM yyyy")
 
-Since addresses are delimited with colons in our reduced dataset, we split the string by ":" and map each output address to a separate record. We also remove addresses that are "null", which resulted from an inability to decode certain input/output scripts.
-
-At this point, all records in \lstinline{blocks} and \lstinline{outputAddresses} use block hash as their key. Therefore, we can join both RDDs to get the times the associated transactions were confirmed in their respective blocks. After this, we can reduce the resulting RDD by key, continuously leaving the earliest date as the value. Lastly, we convert the date's format to just a year and month.
-
-\begin{lstlisting}[language=Scala]
-//join blocks and output addresses
-val combined = blocks.join(outputAddresses).map(entry => (entry._2._2, entry._2._1))
 //get month each address was first used
-val addressFirstSeen = combined.reduceByKey((a, b) => if(a.before(b)) a else b) \
-      .map(entry => (entry._1, newFormat.format(entry._2)))
+val addressFirstSeen = combined.reduceByKey((a, b) => \
+    if(a.before(b)) a else b) \
+    .map(entry => (entry._1, newFormat.format(entry._2)))
 \end{lstlisting}
 
-To finally get the number of new addresses per month, we swap keys and values and count the number of values per key:
+To finally get the number of new addresses per month, we swap keys and values and count the number of values per key using the \lstinline{reduceByKey()} function:
 
 \begin{lstlisting}
 val outputFilePath = "hdfs://"+outputPath+"/new_addresses"
 
 //number of new addresses per month
-addressFirstSeen.map(entry => (entry._2, 1)) \
-    .reduceByKey(_ + _).repartition(1) \
+val newAddressesPerMonth = addressFirstSeen.map(entry =>
+    (entry._2, 1)).reduceByKey(_ + _)
+newAddressesPerMonth.repartition(1) \
     .saveAsTextFile(outputFilePath)
 \end{lstlisting}
 
@@ -708,7 +706,7 @@ uSrhYLjvPUgwvDUJmksfREUGBTT,1571000000:1000000
 
 We also recorded generic Bitcoin activity throughout this process - blocks, transactions, and volume traded per month.
 
-\subsection{Address Growth Per Month}
+\subsection{Address Growth}
 
 The exact results from running this analysis can be seen \href{https://github.com/nishilshah17/idsi_bitcoin/blob/d2f1e0257ff684e99356de052eed1c6868ffe82f/data/output/new_addresses/new_addresses.txt}{here}. In the following graph, we have omitted results from April 2017 due to incomplete data from that month.
 
@@ -726,7 +724,7 @@ There is an obvious rapid and increasing growth in the number of new addresses u
 This technical report provides just a brief introduction to the type of analysis that can be done on the Bitcoin blockchain. There are endless opportunities with this kind of financial data that we hope to explore and see in the future. For instance, we can attempt to identify entities/wallets from input and output addresses. This can lead to many conclusions such as how many Bitcoin the average person has and which wallets control the biggest share of the market. It would also be useful to look at patterns between certain transaction activity to Bitcoin/USD exchange price movements. A more complicated project could involve the classification of suspicious activity.
 
 
-Additionally, we are not just limited to Bitcoin transactional data. There are numerous cryptocurrencies gaining popularity, most (if not all) of which operate using a similar decentralized ledger. All that is needed to expand this project to other blockchains is different methods of parsing the raw binary data.
+Additionally, we are not just limited to Bitcoin transaction data. There are numerous cryptocurrencies gaining popularity, most (if not all) of which operate using a similar decentralized ledger. All that is needed to expand this project to other blockchains is different methods of parsing the raw binary data.
 
 \section{Conclusion}
 In this technical report, we downloaded and performed an analysis on the full Bitcoin blockchain from the currency's inception until April 11, 2017. We discovered an upward trend in new addresses used per month, supporting an increase in Bitcoin adoption. We also looked into the reuse of addresses, which provides many insights. We found that XX percent of addresses are only used once and that addresses are reused an average of X.X times. This gives an estimate of how long people hold onto Bitcoin before spending it.

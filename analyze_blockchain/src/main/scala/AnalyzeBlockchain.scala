@@ -28,11 +28,11 @@ object AnalyzeBlockchain {
   }
 
   def inputAddressIndex(): Int = {
-    5
+    6
   }
 
   def outputAddressIndex(): Int = {
-    6
+    7
   }
 
   def main(args: Array[String]): Unit = {
