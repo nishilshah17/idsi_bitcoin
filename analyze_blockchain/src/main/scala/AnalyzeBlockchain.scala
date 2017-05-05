@@ -11,7 +11,7 @@ object AnalyzeBlockchain {
   private def setSparkContext(): SparkContext = {
     val conf = new SparkConf().setAppName("AnalyzeBlockchain").setMaster("local")
     conf.set("spark.local.dir", "/mnt/volume/tmp")
-    return new SparkContext(conf)
+    new SparkContext(conf)
   }
 
   private def printUsageError() = {
@@ -24,7 +24,7 @@ object AnalyzeBlockchain {
     val conf = new Configuration()
     val fileSystem = FileSystem.get(conf)
     val output = fileSystem.create(path)
-    return new PrintWriter(output)
+    new PrintWriter(output)
   }
 
   def inputAddressIndex(): Int = {
@@ -46,8 +46,8 @@ object AnalyzeBlockchain {
       BlockchainOverview.run(inputPath, outputPath, sc)
     } else if(job == "NewAddresses") {
       NewAddresses.run(inputPath, outputPath, sc)
-    } else if(job == "AddressReuse") {
-      AddressReuse.run(inputPath, outputPath, sc)
+    } else if(job == "AddressUse") {
+      AddressUse.run(inputPath, outputPath, sc)
     } else {
       printUsageError()
     }
