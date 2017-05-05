@@ -1,6 +1,0 @@
-Unique Addresses: 3184984
-Single Use Addresses: 2608579
-Avg Times Address Used: 1.6424170419694417
-Avg Times Address Used (omitting single use addresses): 4.5497402000329625
-Avg Time Between Address Use: 436833.7278181707
-Avg Time Between Address Use (omitting single use addresses): 2413768.849613082

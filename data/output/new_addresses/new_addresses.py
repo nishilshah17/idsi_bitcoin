@@ -5,7 +5,7 @@ from bokeh.plotting import figure, output_file, show
 default_date = datetime.combine(date.today(), datetime.min.time()).replace(day=1)
 
 inputFilePath = "new_addresses.txt"
-data = [entry.strip("()\n").split(",") for entry in open(inputFilePath)]
+data = [entry.strip("()\n").split(",") for entry in open(inputFilePath)][1:]
 data = [(parse(entry[0], default=default_date), entry[1]) for entry in data]
 data = sorted(data, key=lambda x: x[0])
 
