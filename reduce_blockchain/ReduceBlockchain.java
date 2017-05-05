@@ -64,9 +64,7 @@ public class ReduceBlockchain {
 
         private String blockTag = "blocks";
         private String transactionTag = "transactions";
-        private String blockCountTag = "block-count";
-        private String txCountTag = "transaction-count";
-        private String volumeTag = "volume";
+        private String generalActivityTag = "general-activity";
 
         private Text outKey;
         private NullWritable outValue = NullWritable.get();
@@ -107,12 +105,8 @@ public class ReduceBlockchain {
                 }
             }
 
-            outKey = new Text(key + "," + blockCount);
-            multipleOutputs.write(outKey, outValue, blockCountTag);
-            outKey = new Text(key + "," + txCount);
-            multipleOutputs.write(outKey, outValue, txCountTag);
-            outKey = new Text(key + "," + volume);
-            multipleOutputs.write(outKey, outValue, volumeTag);
+            outKey = new Text(key + "," + blockCount + "," + txCount + "," + volume);
+            multipleOutputs.write(outKey, outValue, generalActivityTag);
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException {
