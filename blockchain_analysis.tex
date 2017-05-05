@@ -79,6 +79,7 @@ The following technologies are used in our implementation:
     \item bitcoinj (for parsing) [\href{https://bitcoinj.github.io/}{website}] [\href{https://bitcoinj.github.io/#getting-started}{download}]
     \item Apache\textsuperscript{TM} Hadoop\textsuperscript{\textregistered} [\href{http://hadoop.apache.org}{website}] [\href{http://hadoop.apache.org/#Download+Hadoop}{download}]
     \item Apache Spark\textsuperscript{TM} [\href{http://spark.apache.org/}{website}] [\href{http://spark.apache.org/downloads.html}{download}]
+    \item IntelliJ IDEA [\href{https://www.jetbrains.com/idea/}{website}] [\href{https://www.jetbrains.com/idea/download/}{download}]
 \end{itemize}
 All software was written in Java, Scala, and Python.
 
@@ -111,7 +112,7 @@ Now, to start the daemon:
 The daemon takes a few moments to get started. Slowly, block files will begin to appear in \lstinline{.../.bitcoin/blocks/}.  The blockchain's primary inherent property requires the daemon to download and verify each block independently before moving on to the next to ensure a valid chain. This process takes many hours. There exists an alternative which reduces the daemon's workload.
 
 \subsection{Indexed Blockchains}
-There are several resources online which offer indexed versions of the blockchain with either the raw block files or a \lstinline{Bootstrap.dat} file. After downloading an indexed blockchain into the \lstinline{.../.bitcoin/} directory, the daemon still must verify them and then continue its work from the last file in the indexed state. The daemon is started as shown above.
+There are a few resources online which offer indexed versions of the blockchain with either the raw block files or a compressed \lstinline{Bootstrap.dat} file. After downloading an indexed blockchain into the \lstinline{.../.bitcoin/} directory, the daemon still must verify them and then continue its work from the last file in the indexed state. The daemon is started as shown above.
 
 \subsection{Copying Data to HDFS}
 
@@ -129,12 +130,12 @@ Similarly, we use \lstinline{copyToLocal} to copy files to the local drive.
 \subsection{The Data}
 As mentioned before, the blockchain is stored in a series of binary files:
 \begin{lstlisting}[language=bash]
- $ ls /.bitcoin/blocks/
+ $ hdfs dfs -ls /shared/blockchain
 ...blk00491.dat  blk00492.dat  blk00493.dat  blk00494.dat
     blk00495.dat  blk00496.dat  blk00497.dat  blk00498.dat...
 \end{lstlisting}
 
-Each \lstinline{blk*.dat} file describes the contents of several blocks, including header information and transactions. The block header contains important metadata like the block's hash, the previous block's hash, and the time it was solved. Each transaction has its own data including (but not limited to) its hash, input and output addresses, and Bitcoin value sent.
+Each \lstinline{blk*.dat} file describes the contents of several blocks, including header information and transactions. The block header contains important metadata like the block's hash, the previous block's hash, and the time it was solved. Each transaction has its own data including (but not limited to) its hash, input and output addresses, and Bitcoin value sent to each respective output.
 
 This file format is not directly effective for performing large computations. It is difficult to group, sort, and filter through transactions in this structure. Moreover, constantly parsing and extracting data from each file is expensive. The files also contain some excess information that we would rather overlook. We can solve this problem by using Hadoop MapReduce to transform the blockchain into a simplified text format.
 
@@ -450,7 +451,7 @@ To compile and run MapReduce using an external JAR file, we add the JAR to the c
 job.addFileToClassPath("path/to/bitcoinj.jar");
 \end{lstlisting}
 
-\subsubsection{Putting It All Together}
+\subsubsection{Putting Everything Together}
 We then configure the MapReduce job in the main driver to tell Hadoop which classes, types, and settings to use. First, we set a configuration:
 
 \begin{lstlisting}
@@ -497,7 +498,7 @@ The following sequence of commands compile the source code into a JAR file and r
  $ jar cvf rbc.jar \
      *.class blockparser/*.class datatypes/*.class
  $ yarn jar rbc.jar ReduceBlockchain \
-     /shared/blockchain  /shared/reduced_blockchain
+     /shared/blockchain  /shared/blockchain_reduced
 \end{lstlisting}
 
 \section{Analyzing the Blockchain with Spark}
@@ -668,12 +669,12 @@ Finally, we use the \lstinline{spark-submit} command to run the Spark job. We in
 \begin{lstlisting}[language=bash]
  $ spark-submit --class AnalyzeBlockchain \
     analyze_blockchain-assembly-1.0.jar <task> \
-    /path/to/input /path/to/output
+    /shared/blockchain_reduced /path/to/output
 \end{lstlisting}
 
 \section{Results}
 \subsection{MapReduce}
-The MapReduce job ran in 1 hour and 24 minutes, reducing the original 111.3 GB of compressed, binary data to 73.7 GB of text.
+The MapReduce job ran in 1 hour and 24 minutes, reducing the original 111.3 GB of compressed, binary data to 73.7 GB of useful text.
 
 Block data is outputted in the following format:
 \begin{lstlisting}
@@ -681,7 +682,7 @@ Block data is outputted in the following format:
 <transactionCount>
 \end{lstlisting}
 
-An example entry is:
+An example record is:
 \begin{lstlisting}
 000000000000000002eec3b07facdb475a338ddf00b5d771ae6875833\
 19eae65,000000000000000000609b5f89c999e13e53577f45b333de3\
@@ -705,6 +706,8 @@ kmL8p121jRab9V,1CnU8X8u15hbyA3PPrxXNM2N2dXbyorGoV:18gBZns\
 uSrhYLjvPUgwvDUJmksfREUGBTT,1571000000:1000000
 \end{lstlisting}
 
+We also recorded generic Bitcoin activity throughout this process - blocks, transactions, and volume traded per month.
+
 \subsection{Address Growth Per Month}
 
 The exact results from running this analysis can be seen \href{https://github.com/nishilshah17/idsi_bitcoin/blob/d2f1e0257ff684e99356de052eed1c6868ffe82f/data/output/new_addresses/new_addresses.txt}{here}. In the following graph, we have omitted results from April 2017 due to incomplete data from that month.
@@ -719,8 +722,14 @@ There is an obvious rapid and increasing growth in the number of new addresses u
 
 
 
+\section{Other Applications}
+This technical report provides just a brief introduction to the type of analysis that can be done on the Bitcoin blockchain. There are endless opportunities with this kind of financial data that we hope to explore and see in the future. For instance, we can attempt to identify entities/wallets from input and output addresses. This can lead to many conclusions such as how many Bitcoin the average person has and which wallets control the biggest share of the market. It would also be useful to look at patterns between certain transaction activity to Bitcoin/USD exchange price movements. A more complicated project could involve the classification of suspicious activity.
+
+
+Additionally, we are not just limited to Bitcoin transactional data. There are numerous cryptocurrencies gaining popularity, most (if not all) of which operate using a similar decentralized ledger. All that is needed to expand this project to other blockchains is different methods of parsing the raw binary data.
+
 \section{Conclusion}
 In this technical report, we downloaded and performed an analysis on the full Bitcoin blockchain from the currency's inception until April 11, 2017. We discovered an upward trend in new addresses used per month, supporting an increase in Bitcoin adoption. We also looked into the reuse of addresses, which provides many insights. We found that XX percent of addresses are only used once and that addresses are reused an average of X.X times. This gives an estimate of how long people hold onto Bitcoin before spending it.
 
-We have also seen the procedures involved in processing a large real world dataset with big data technologies such as Hadoop and Spark. Overall, Bitcoin is the biggest and most popular virtual currency in the world today. Every day, hundreds of blocks are being added to the blockchain that we explored in this technical report. This technical report is just a glimpse into the amount of information stored in the blockchain and the vast potential for big data applications in this area.
+We have also seen the procedures involved in processing a large real world dataset with big data technologies such as Hadoop and Spark. Bitcoin is the biggest and most popular virtual currency in the world today. Every day, hundreds of blocks are being added to the blockchain that we explored in this technical report. This technical report is just a glimpse into the amount of information stored in the blockchain. There is a vast potential for future big data applications in this area.
 \end{document}
