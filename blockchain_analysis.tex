@@ -664,7 +664,7 @@ val totalTimeBeforeSpend = spentAddresses \
 
 Dividing \lstinline{totalTimeBeforeSpend} by \lstinline{spentAddresses.count()} results in the average time before an address first spends Bitcoins! We use a very similar technique to also calculate the average time between the reuse of an address.
 
-The \lstinline{AddressUse} task's full code is shown \href{https://github.com/nishilshah17/idsi_bitcoin/blob/master/analyze_blockchain/src/main/scala/AddressReuse.scala}{here}.
+The \lstinline{AddressUse} task's full code is shown \href{https://github.com/nishilshah17/idsi_bitcoin/blob/44ec93f337bdf620b56f4343650f2a572aca2cb4/analyze_blockchain/src/main/scala/AddressUse.scala}{here}.
 
 \subsection{Printing To A File on HDFS}
 
@@ -755,7 +755,7 @@ kmL8p121jRab9V,1CnU8X8u15hbyA3PPrxXNM2N2dXbyorGoV:18gBZns\
 uSrhYLjvPUgwvDUJmksfREUGBTT,1571000000:1000000
 \end{lstlisting}
 
-We also recorded generic Bitcoin activity throughout this process - blocks, transactions, and volume traded per month. All this information is available \href{https://github.com/nishilshah17/idsi_bitcoin/blob/master/data/output/general/monthly_activity.txt}{here}. In graph form:
+We also recorded generic Bitcoin activity throughout this process - blocks, transactions, and volume traded per month. All this information is available \href{https://github.com/nishilshah17/idsi_bitcoin/blob/44ec93f337bdf620b56f4343650f2a572aca2cb4/data/output/general/monthly_activity.txt}. In graph form:
 
 \subsubsection{Blocks Per Month}
 \begin{figure}[!ht]
@@ -774,7 +774,7 @@ We also recorded generic Bitcoin activity throughout this process - blocks, tran
 
 \subsection{Address Growth}
 
-The exact results from running this analysis can be seen \href{https://github.com/nishilshah17/idsi_bitcoin/blob/d2f1e0257ff684e99356de052eed1c6868ffe82f/data/output/new_addresses/new_addresses.txt}{here}. In the following graph, we have omitted results from April 2017 due to incomplete data from that month.
+The exact results from running this analysis can be seen \href{https://github.com/nishilshah17/idsi_bitcoin/blob/44ec93f337bdf620b56f4343650f2a572aca2cb4/data/output/new_addresses/new_addresses.txt}{here}. In the following graph, we have omitted results from April 2017 due to incomplete data from that month.
 
 \begin{figure}[!ht]
 \includegraphics[width=9cm, height=5cm]{data/output/new_addresses/new_addresses.png}
@@ -782,18 +782,52 @@ The exact results from running this analysis can be seen \href{https://github.co
 
 There is an obvious rapid and increasing growth in the number of new addresses used per month.
 
-\subsection{Address Reuse}
+\subsection{Address Use}
 
-/* LAST TODO */
+This Spark task took over 12 hours to run, processing a total of over a billion addresses.
+
+\subsubsection{Address Use Statistics}
+\begin{lstlisting}
+Unique Addresses: 244057319
+Single Use Addresses: 29010878
+Avg Times Address Used: 4.343551479396527
+Avg Times Address Used (omitting single use addresses): 4.7946138806361365
+Avg Time Between Address Reuse: 308316.6737840199s
+Avg Time Before First Spend: 673824.116757295s
+\end{lstlisting}
+
+It makes sense that addresses are used a small amount of times. For security purposes, it is encouraged to generate new addresses every time a user receives new coins. The average time between address reuse translates to about 3.5 days. Also, on average, users hold Bitcoins in an address for approximately a week before first spending from it.
+
+We also outputted a \href{https://github.com/nishilshah17/idsi_bitcoin/blob/44ec93f337bdf620b56f4343650f2a572aca2cb4/data/output/address_use/address_use_count.txt}{distribution} of address use count versus the number of addresses with that use count. A snippet is shown below:
+
+\begin{lstlisting}
+(1,29010878)
+(2,193665574)
+(3,1155861)
+(4,8359430)
+(5,455578)
+(6,2785540)
+(7,263206)
+(8,1444710)
+(9,169664)
+(10,977941)
+...
+(1191021,1)
+(2209863,1)
+(2396639,1)
+(3201439,1)
+(3774433,1)
+\end{lstlisting}
+
+Comparing this data with that on other Blockchain websites confirms that the most used addresses are Bitcoin gambling deposit addresses, specifically those of the site SatoshiDICE.
 
 \section{Other Applications}
 This technical report provides just a brief introduction to the type of analysis that can be done on the Bitcoin blockchain. There are endless opportunities with this kind of financial data that we hope to explore and see in the future. For instance, we can attempt to identify entities/wallets from input and output addresses. This can lead to many conclusions such as how many Bitcoin the average person has and which wallets control the biggest share of the market. It would also be useful to look at patterns between certain transaction activity to Bitcoin/USD exchange price movements. A more complicated project could involve the classification of suspicious activity.
 
-
 Additionally, we are not just limited to Bitcoin transaction data. There are numerous cryptocurrencies gaining popularity, most (if not all) of which operate using a similar decentralized ledger. All that is needed to expand this project to other blockchains is different methods of parsing the raw binary data.
 
 \section{Conclusion}
-In this technical report, we downloaded and performed an analysis on the full Bitcoin blockchain from the currency's inception until April 11, 2017. We discovered an upward trend in new addresses used per month, supporting an increase in Bitcoin adoption. We also looked into the reuse of addresses, which provides many insights. We found that XX percent of addresses are only used once and that addresses are reused an average of X.X times. This gives an estimate of how long people hold onto Bitcoin before spending it.
+In this technical report, we performed an analysis on the full Bitcoin blockchain from the currency's inception until April 11, 2017. We discovered an upward trend in new addresses used per month, supporting an increase in Bitcoin adoption. The analysis looked into specifics on the usage of addresses, which provides many insights. We found that ~11 percent of addresses are only used once and that addresses are reused an average of 4.34 times. We also calculated the average time between address reuses. Furthermore, our analysis determined the average time users hold Bitcoin in an address before first spending from it.
 
-We have also seen the procedures involved in processing a large real world dataset with big data technologies such as Hadoop and Spark. Bitcoin is the biggest and most popular virtual currency in the world today. Every day, hundreds of blocks are being added to the blockchain that we explored in this technical report. This technical report is just a glimpse into the amount of information stored in the blockchain. There is a vast potential for future big data applications in this area.
+This project explains the procedures involved in processing a large real world dataset with big data technologies Hadoop and Spark on an Openstack cluster. Bitcoin is the biggest and most popular virtual currency in the world today. Every day, hundreds of blocks are being added to the blockchain that we explored in this technical report. This technical report is just a glimpse into the amount of information stored in the blockchain. There is a vast potential for future big data applications in this area.
 \end{document}
