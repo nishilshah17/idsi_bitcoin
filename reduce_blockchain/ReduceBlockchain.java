@@ -64,7 +64,7 @@ public class ReduceBlockchain {
 
         private String blockTag = "blocks";
         private String transactionTag = "transactions";
-        private String generalActivityTag = "general-activity";
+        private String monthActivityTag = "activity-by-month";
 
         private Text outKey;
         private NullWritable outValue = NullWritable.get();
@@ -106,7 +106,7 @@ public class ReduceBlockchain {
             }
 
             outKey = new Text(key + "," + blockCount + "," + txCount + "," + volume);
-            multipleOutputs.write(outKey, outValue, generalActivityTag);
+            multipleOutputs.write(outKey, outValue, monthActivityTag);
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException {
