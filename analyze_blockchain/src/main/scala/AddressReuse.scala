@@ -6,18 +6,13 @@ import java.text.SimpleDateFormat
 
 object AddressReuse {
 
-  def totalReuse(ts: Iterable[Long]): Double = {
+  def totalReuseTime(ts: Iterable[Long]): Double = {
     val reuseCount = ts.size - 1
     if(reuseCount < 1) {
       return 0
     }
     val dates = ts.toList.sorted
-    var totalTime = 0.0
-    for(i <- 0 until reuseCount) {
-      val diff = dates(i+1) - dates(i)
-      totalTime += diff
-    }
-    return totalTime
+    return dates(reuseCount) - dates(0)
   }
 
   def run(inputPath: String, outputPath: String, sc: SparkContext) = {
@@ -55,7 +50,7 @@ object AddressReuse {
     //total time between address reuse
     val datesAddressUsed = combined.map(entry => (entry._2._2, entry._2._1)).groupByKey()
       .filter(entry => entry._2.size > 1)
-    val totalTimeBetweenReuse: Double = datesAddressUsed.map(entry => (0, totalReuse(entry._2)))
+    val totalTimeBetweenReuse: Double = datesAddressUsed.map(entry => (0, totalReuseTime(entry._2)))
       .reduceByKey(_ + _).first()._2
 
     //calculations

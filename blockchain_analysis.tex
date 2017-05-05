@@ -121,8 +121,9 @@ To distribute the storage of data across multiple nodes in our cluster, we copy 
  $ hdfs dfs -mkdir /shared/blockchain
  $ hdfs dfs -copyFromLocal \
     /.bitcoin/blocks/* /shared/blockchain
-
 \end{lstlisting}
+
+Similarly, we use \lstinline{copyToLocal} to copy files to the local drive.
 
 \section{Parsing the Blockchain With Hadoop}
 \subsection{The Data}
@@ -138,7 +139,9 @@ Each \lstinline{blk*.dat} file describes the contents of several blocks, includi
 This file format is not directly effective for performing large computations. It is difficult to group, sort, and filter through transactions in this structure. Moreover, constantly parsing and extracting data from each file is expensive. The files also contain some excess information that we would rather overlook. We can solve this problem by using Hadoop MapReduce to transform the blockchain into a simplified text format.
 
 \subsection{Why MapReduce?}
-MapReduce is an adequate method for this task because the blockchain can easily be split into equally sized, independent chunks. The processing of one block does not rely on another and thus can be parallelized. We do this by writing a custom input format which iterates through each \lstinline{blk*.dat} file and sends the bytes corresponding to each block to the map phase. Then, each block's bytes are parsed to \lstinline{Block} and \lstinline{Transaction} objects in the mapper. The mapper writes all blocks and transactions as values by using a parent \lstinline{GenericWritable} class. We use a date-based key to split the work among several reducers. Therefore, each reducer will receive a list of transactions and blocks that occurred in the same month and output them to separate files. The MapReduce output directory looks something like this:
+MapReduce is an adequate method for this task because the blockchain can easily be split into equally sized, independent chunks. The processing of one block does not rely on another and thus can be parallelized.
+
+We do this by writing a custom input format which iterates through each \lstinline{blk*.dat} file and sends the bytes corresponding to each block to the map phase. Then, each block's bytes are parsed to \lstinline{Block} and \lstinline{Transaction} objects in the mapper. The mapper writes all blocks and transactions as values by using a parent \lstinline{GenericWritable} class. We use a date-based key to split the work among several reducers. Therefore, each reducer will receive a list of transactions and blocks that occurred in the same month and output them to separate files. The MapReduce output directory looks something like this:
 
 \begin{lstlisting}[language=bash]
  $ hdfs dfs -ls /shared/bitcoin/output
@@ -151,7 +154,7 @@ MapReduce is an adequate method for this task because the blockchain can easily 
 We go into detail on this part of the project in the next few sections. An explanation of the results is located in section 7.A.
 
 \subsection{Writing a Custom Input Format}
-By default, Hadoop partitions input files into appropriately sized splits before the map phase. This is insufficient given the structure of our data files. Obviously, Hadoop does not know how to identify the beginning and end of each block within the \lstinline{blk*.dat} files, leading to the possibility of incomplete records. Therefore, we can prevent input splitting and read entire input files at once prior to the map phase. We do this by implementing two classes, \lstinline{FileInputFormat} and \lstinline{RecordReader}.
+By default, Hadoop partitions input files into appropriately sized splits before the map phase. This is insufficient given the structure of our data files. Obviously, Hadoop does not know how to identify the beginning and end of each block within the \lstinline{blk*.dat} files, leading to the possibility of incomplete records. Therefore, we can prevent input splitting and read entire input files at once prior to the map phase. We approach this by implementing two classes, \lstinline{FileInputFormat} and \lstinline{RecordReader}.
 
 \subsubsection{FileInputFormat}
 The \lstinline{FileInputFormat} class is primarily responsible for creating input splits from files. It also creates an instance of \lstinline{RecordReader} that builds key-value pairs from each input split.
@@ -286,8 +289,9 @@ The process is similar for creating \lstinline{TransactionWritable}, so we will 
 
 \begin{lstlisting}
 public class TransactionWritable implements Writable {
-    private String blockHash;
     private String hash;
+    private String blockHash;
+    private String time;
     private long value;
     private int size;
     private boolean isCoinBase;
@@ -297,7 +301,9 @@ public class TransactionWritable implements Writable {
 }
 \end{lstlisting}
 
-The number of input and output addresses vary per transaction. We deal with this by joining each address in a string with the ":" symbol. \lstinline{outputValues} holds the amount of Bitcoin (in the lowest denomination, satoshis) sent to each output address and follows the same protocol. Sometimes, it is impossible to decode the original input or output address, in which case we use the string "null" as a placeholder. Example values for transaction \lstinline{ac8d7dde0667e1e8691bbed0b75742275acf617ff55} \lstinline{31a86ffd2129747551b74} is:
+It is important to note that the \lstinline{time} value used above is equivalent to the solve time of the block the transaction was included in. The blockchain actually does not store the time a transaction was initiated. Individual nodes in the network receive transactions at different times, meaning the value varies from node to node. In this report, we use the block's solve time to maintain consistency.
+
+On another note, the number of input and output addresses vary per transaction. We deal with this by joining each address in a string with a different delimiter, a colon. \lstinline{outputValues} holds the amount of Bitcoin (in the lowest denomination, satoshis) sent to each output address and follows the same "colon" protocol. Sometimes, it is impossible to decode the original input or output address, in which case we use the string "null" as a placeholder. Example values for transaction \lstinline{ac8d7dde0667e1e8691bbed0b75742275acf617ff55} \lstinline{31a86ffd2129747551b74} is:
 
 \begin{lstlisting}
 inputs = "null"
@@ -381,8 +387,9 @@ context(outKey, outValue);
 
 //write transactions
 String blockHash = blockWritable.getHash();
+String time = blockWritable.getTime();
 for(Transaction tx : nextBlock.getTransactions()) {
-    TransactionWritable txWritable = new TransactionWritable(tx, blockHash);
+    TransactionWritable txWritable = new TransactionWritable(tx, blockHash, time);
     outValue = new MessageWritable(txWritable);
     context.write(outKey, outValue);
 }
@@ -433,8 +440,9 @@ for(MessageWritable mWritable: values) {
 }
 \end{lstlisting}
 
-And that's it!
+The above code is easily modified to count the number of blocks, transactions, and transaction volume per month. Using \lstinline{MultipleOutputs}, we write each of those three values along with the key to a separate file.
 
+And that's it!
 \subsubsection{Using External Libraries With Hadoop}
 To compile and run MapReduce using an external JAR file, we add the JAR to the classpath. Running \lstinline{echo $HADOOP_CLASSPATH} on the command-line returns a list of directories that belong to Hadoop's classpath on the system. Moving the JAR (\emph{bitcoinj.jar}) to any of those directories does the trick. In addition, we add the following configuration to the job in the main driver to ensure the JAR file is located during runtime.
 
@@ -475,7 +483,9 @@ public static void main(String[] args) throws Exception {
     System.exit(job.waitForCompletion(true) ? 0 : 1);
 \end{lstlisting}
 
-We are required to set the mapper and reducer class and their respective output value types. In addition, we set the input format to the custom \lstinline{BlockFileInputFormat} class we created in section 5.C.
+We are required to set the mapper and reducer classes and their respective output value types. In addition, we set the input format to the custom \lstinline{BlockFileInputFormat} class we created in section 5.C.
+
+By default, Hadoop uses a single reduce task. That being said, there is no set rule on the number of reducers we should use. Influencing factors are the number of nodes in our cluster and the number of containers per node. Using too little reducers can slow down the entire job. On the other hand, using too many reducers increases disk overhead. Here, we set the number of reduce tasks to 8.
 
 The \lstinline{BlockFileInputFormat}, \lstinline{BlockFileRecordReader}, and \lstinline{BlockUtils} classes are packaged using \lstinline{package blockparser}. We also package the writable datatypes, \lstinline{BlockWritable}, \lstinline{TransactionWritable}, and \lstinline{MessageWritable} into \lstinline{package datatypes}. The main MapReduce job in \lstinline{ReduceBlockchain.java} is in the main directory.
 
@@ -682,8 +692,8 @@ An example entry is:
 
 Transaction data follows this format:
 \begin{lstlisting}
-<blockHash>,<hash>,<value>,<size>,<isCoinBase>,<inputs>,<outputs>,
-<outputValues>
+<hash>,<blockHash>,<time>,<value>,<size>,<isCoinBase>,
+<inputs>,<outputs>,<outputValues>
 \end{lstlisting}
 
 Example:
