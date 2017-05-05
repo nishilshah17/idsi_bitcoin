@@ -1,6 +1,6 @@
 name := "analyze_blockchain"
 
-version := "1.4"
+version := "2.0"
 
 scalaVersion := "2.10.4"
 val sparkVersion = "2.1.0"
